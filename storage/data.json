@@ -1,0 +1,281 @@
+{
+  "schemaVersion": 2,
+  "currentUserId": "user-kevin",
+  "users": [
+    {
+      "id": "user-kevin",
+      "name": "Kevin",
+      "email": "kevin@taskflow.local",
+      "initials": "K",
+      "color": "#3f6152",
+      "role": "ADMIN"
+    }
+  ],
+  "workspaces": [
+    {
+      "id": "workspace-personal",
+      "name": "Meu workspace",
+      "description": "Organização pessoal e profissional",
+      "ownerId": "user-kevin",
+      "createdAt": "2026-09-20T09:00:00.000Z"
+    }
+  ],
+  "projects": [
+    {
+      "id": "project-main",
+      "workspaceId": "workspace-personal",
+      "name": "Operação principal",
+      "description": "Tarefas importantes do dia a dia",
+      "icon": "✦",
+      "color": "#3f6152",
+      "ownerId": "user-kevin",
+      "createdAt": "2026-09-20T09:00:00.000Z"
+    },
+    {
+      "id": "project-growth",
+      "workspaceId": "workspace-personal",
+      "name": "Estudos e crescimento",
+      "description": "Aprendizados e planos pessoais",
+      "icon": "↗",
+      "color": "#3c6377",
+      "ownerId": "user-kevin",
+      "createdAt": "2026-09-21T09:00:00.000Z"
+    },
+    {
+      "id": "project-content",
+      "workspaceId": "workspace-personal",
+      "name": "Conteúdo",
+      "description": "Ideias, publicações e projetos criativos",
+      "icon": "◈",
+      "color": "#905f18",
+      "ownerId": "user-kevin",
+      "createdAt": "2026-09-22T09:00:00.000Z"
+    }
+  ],
+  "columns": [
+    {
+      "id": "todo",
+      "projectId": "project-main",
+      "title": "A Fazer",
+      "color": "#5a6472",
+      "order": 0
+    },
+    {
+      "id": "progress",
+      "projectId": "project-main",
+      "title": "Em Andamento",
+      "color": "#905f18",
+      "order": 1
+    },
+    {
+      "id": "review",
+      "projectId": "project-main",
+      "title": "Revisao",
+      "color": "#3c6377",
+      "order": 2
+    },
+    {
+      "id": "done",
+      "projectId": "project-main",
+      "title": "Concluido",
+      "color": "#2b6b4f",
+      "order": 3
+    },
+    {
+      "id": "project-growth-todo",
+      "projectId": "project-growth",
+      "title": "A fazer",
+      "color": "#5a6472",
+      "order": 0
+    },
+    {
+      "id": "project-growth-progress",
+      "projectId": "project-growth",
+      "title": "Em andamento",
+      "color": "#905f18",
+      "order": 1
+    },
+    {
+      "id": "project-growth-review",
+      "projectId": "project-growth",
+      "title": "Em revisão",
+      "color": "#3c6377",
+      "order": 2
+    },
+    {
+      "id": "project-growth-done",
+      "projectId": "project-growth",
+      "title": "Concluído",
+      "color": "#2b6b4f",
+      "order": 3
+    },
+    {
+      "id": "project-content-todo",
+      "projectId": "project-content",
+      "title": "A fazer",
+      "color": "#5a6472",
+      "order": 0
+    },
+    {
+      "id": "project-content-progress",
+      "projectId": "project-content",
+      "title": "Em andamento",
+      "color": "#905f18",
+      "order": 1
+    },
+    {
+      "id": "project-content-review",
+      "projectId": "project-content",
+      "title": "Em revisão",
+      "color": "#3c6377",
+      "order": 2
+    },
+    {
+      "id": "project-content-done",
+      "projectId": "project-content",
+      "title": "Concluído",
+      "color": "#2b6b4f",
+      "order": 3
+    }
+  ],
+  "tasks": [
+    {
+      "id": "33d2d835-87b2-41f0-a4fb-51cd55590431",
+      "title": "levar os nobreaks",
+      "description": "",
+      "priority": "high",
+      "dueDate": null,
+      "columnId": "done",
+      "order": 0,
+      "projectId": "project-main",
+      "assigneeId": "user-kevin",
+      "labels": [],
+      "createdAt": "2026-09-25T13:04:53.247Z",
+      "updatedAt": "2026-09-25T14:19:04.058Z",
+      "completedAt": "2026-09-25T14:19:04.058Z"
+    },
+    {
+      "id": "b40502df-4cca-4564-af27-8f5a13ff5f3c",
+      "title": "fechar chamados",
+      "description": "",
+      "priority": "medium",
+      "dueDate": null,
+      "columnId": "done",
+      "order": 9999,
+      "projectId": "project-main",
+      "assigneeId": "user-kevin",
+      "labels": [],
+      "createdAt": "2026-09-25T13:04:57.594Z",
+      "updatedAt": "2026-09-28T13:25:55.894Z",
+      "completedAt": "2026-09-28T13:25:55.894Z"
+    },
+    {
+      "id": "f65d1d78-e66d-49cc-a8ce-6d9761681190",
+      "title": "arrumar impressora controlados",
+      "description": "",
+      "priority": "high",
+      "dueDate": null,
+      "columnId": "done",
+      "order": 0,
+      "projectId": "project-main",
+      "assigneeId": "user-kevin",
+      "labels": [],
+      "createdAt": "2026-09-25T13:05:15.049Z",
+      "updatedAt": "2026-09-28T13:25:56.859Z",
+      "completedAt": "2026-09-28T13:25:56.859Z"
+    },
+    {
+      "id": "9f056922-6084-4056-b484-d8f331a7b509",
+      "title": "resolver problemas do homelab",
+      "description": "",
+      "priority": "low",
+      "dueDate": null,
+      "columnId": "done",
+      "order": 9999,
+      "projectId": "project-main",
+      "assigneeId": "user-kevin",
+      "labels": [],
+      "createdAt": "2026-09-25T13:05:39.114Z",
+      "updatedAt": "2026-09-28T13:25:57.510Z",
+      "completedAt": "2026-09-28T13:25:57.510Z"
+    },
+    {
+      "id": "9b445984-6380-4260-ae59-e7332d5ffc6b",
+      "title": "validar os computadores",
+      "description": "",
+      "priority": "medium",
+      "dueDate": null,
+      "columnId": "done",
+      "order": 9999,
+      "projectId": "project-main",
+      "assigneeId": "user-kevin",
+      "labels": [],
+      "createdAt": "2026-09-25T13:05:49.801Z",
+      "updatedAt": "2026-09-28T13:25:58.216Z",
+      "completedAt": "2026-09-28T13:25:58.216Z"
+    },
+    {
+      "id": "3c058657-0b5e-48bf-a124-d108bd8492fb",
+      "title": "levar os pcs dhibison",
+      "description": "",
+      "priority": "medium",
+      "dueDate": null,
+      "columnId": "done",
+      "order": 1,
+      "projectId": "project-main",
+      "assigneeId": "user-kevin",
+      "labels": [],
+      "createdAt": "2026-09-25T13:06:28.424Z",
+      "updatedAt": "2026-09-25T14:19:04.058Z",
+      "completedAt": "2026-09-25T14:19:03.353Z"
+    },
+    {
+      "id": "5da1b196-558f-4142-97e8-934352cea661",
+      "title": "comprar remedios",
+      "description": "",
+      "priority": "high",
+      "dueDate": null,
+      "columnId": "done",
+      "order": 9999,
+      "projectId": "project-main",
+      "assigneeId": "user-kevin",
+      "labels": [],
+      "createdAt": "2026-09-25T13:09:54.779Z",
+      "updatedAt": "2026-09-28T13:25:58.635Z",
+      "completedAt": "2026-09-28T13:25:58.635Z"
+    },
+    {
+      "id": "c46810fd-213b-4d34-a3fb-260ab81791cc",
+      "title": "arrumar o quarto",
+      "description": "",
+      "priority": "low",
+      "dueDate": null,
+      "columnId": "done",
+      "order": 9999,
+      "projectId": "project-main",
+      "assigneeId": "user-kevin",
+      "labels": [],
+      "createdAt": "2026-09-25T13:10:00.164Z",
+      "updatedAt": "2026-09-28T13:25:58.832Z",
+      "completedAt": "2026-09-28T13:25:58.832Z"
+    }
+  ],
+  "notes": [],
+  "labels": [
+    {
+      "id": "label-focus",
+      "name": "Foco",
+      "color": "#3f6152"
+    },
+    {
+      "id": "label-urgent",
+      "name": "Urgente",
+      "color": "#a8392f"
+    },
+    {
+      "id": "label-team",
+      "name": "Equipe",
+      "color": "#3c6377"
+    }
+  ]
+}

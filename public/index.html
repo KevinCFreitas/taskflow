@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1c1c1a" />
+  <title>Taskflow — Organização sem complicação</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">T</div>
+        <div class="brand-copy">
+          <strong>taskflow</strong>
+          <span>organize sem complicar</span>
+        </div>
+      </div>
+
+      <button class="workspace-switcher" id="workspace-switcher" type="button">
+        <span class="workspace-avatar">P</span>
+        <span class="workspace-copy">
+          <small>Workspace</small>
+          <strong id="workspace-name">Meu workspace</strong>
+        </span>
+        <span class="workspace-chevron" data-icon="chevron-down"></span>
+      </button>
+
+      <nav class="primary-nav" aria-label="Navegação principal">
+        <span class="nav-caption">Workspace</span>
+        <button class="nav-item active" data-view="dashboard" type="button">
+          <span class="nav-item-icon" data-icon="layout-dashboard"></span>
+          <span>Visão geral</span>
+        </button>
+        <button class="nav-item" data-view="projects" type="button">
+          <span class="nav-item-icon" data-icon="folder"></span>
+          <span>Projetos</span>
+          <span class="nav-count" id="project-count">0</span>
+        </button>
+        <button class="nav-item" data-view="my-tasks" type="button">
+          <span class="nav-item-icon" data-icon="check-square"></span>
+          <span>Minhas tarefas</span>
+        </button>
+        <button class="nav-item" data-view="calendar" type="button">
+          <span class="nav-item-icon" data-icon="calendar"></span>
+          <span>Calendário</span>
+        </button>
+        <button class="nav-item" data-view="notes" type="button">
+          <span class="nav-item-icon" data-icon="sticky-note"></span>
+          <span>Notas</span>
+          <span class="nav-count" id="notes-count">0</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-projects">
+        <div class="sidebar-section-heading">
+          <span class="nav-caption">Seus projetos</span>
+          <button class="tiny-button" data-action="new-project" type="button" aria-label="Criar projeto">+</button>
+        </div>
+        <div id="project-nav"></div>
+      </div>
+
+      <div class="sidebar-bottom">
+        <button class="nav-item" data-view="settings" type="button">
+          <span class="nav-item-icon" data-icon="settings"></span>
+          <span>Configurações</span>
+        </button>
+        <div class="sidebar-user">
+          <span class="avatar avatar-sidebar" id="sidebar-avatar">K</span>
+          <span class="sidebar-user-copy">
+            <strong id="sidebar-user-name">Kevin</strong>
+            <small id="sidebar-user-email">kevin@taskflow.local</small>
+          </span>
+          <button class="icon-button sidebar-more" data-action="user-menu" type="button" aria-label="Mais opções"><span data-icon="more-horizontal"></span></button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="icon-button mobile-menu" id="menu-button" type="button" aria-label="Abrir menu"><span data-icon="menu"></span></button>
+        <div class="page-heading">
+          <span class="page-eyebrow" id="page-eyebrow">Seu espaço de trabalho</span>
+          <h1 id="page-title">Visão geral</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="search-trigger" id="search-trigger" type="button">
+            <span data-icon="search"></span>
+            <span class="search-trigger-label">Buscar tarefas...</span>
+            <kbd>⌘ K</kbd>
+          </button>
+          <button class="icon-button theme-button" id="theme-button" type="button" aria-label="Alternar tema"><span data-icon="sun-moon"></span></button>
+          <button class="icon-button notification-button" id="notification-button" type="button" aria-label="Notificações"><span data-icon="bell"></span><i></i></button>
+          <button class="topbar-user" id="topbar-user" type="button">
+            <span class="avatar avatar-topbar" id="topbar-avatar">K</span>
+            <span class="topbar-user-name" id="topbar-user-name">Kevin</span>
+            <span data-icon="chevron-down"></span>
+          </button>
+        </div>
+      </header>
+      <div class="content-area" id="app-content">
+        <div class="loading-state">
+          <span class="loading-spinner"></span>
+          <p>Carregando seu workspace...</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-root" id="modal-root"></div>
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
+  <script src="js/app.js"></script>
+</body>
+</html>
