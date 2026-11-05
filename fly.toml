@@ -7,6 +7,10 @@ primary_region = "gru"
 [env]
   PORT = "3000"
 
+[mounts]
+  source = "taskflow_data"
+  destination = "/app/storage"
+
 [http_service]
   internal_port = 3000
   force_https = true
