@@ -1,4 +1,4 @@
-app = "taskflow"
+app = "taskflow-kevindev"
 primary_region = "gru"
 
 [build]
