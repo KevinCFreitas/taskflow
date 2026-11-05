@@ -1,10 +1,10 @@
-# fly.toml app configuration file generated for taskflow-kevin on 2026-11-05T15:27:36Z
+# fly.toml app configuration file generated for taskflow-kevin-dev on 2026-11-05T15:40:54Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'taskflow-kevin'
-primary_region = 'ams'
+app = 'taskflow-kevin-dev'
+primary_region = 'gru'
 
 [build]
 [http_service]
