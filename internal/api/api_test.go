@@ -24,10 +24,28 @@ func newTestServer(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("não foi possível criar o armazenamento: %v", err)
 	}
-	return api.New(dataStore, "../../public", nil).Handler()
+	handler := api.New(dataStore, "../../public", nil).Handler()
+	status, payload := doWithToken(t, handler, http.MethodPost, "/api/auth/register", map[string]any{
+		"name":     "Kevin",
+		"email":    "kevin@taskflow.local",
+		"password": "password123",
+	}, "")
+	if status != http.StatusCreated {
+		t.Fatalf("não foi possível registrar usuário de teste: %d (%s)", status, payload)
+	}
+	var response struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(payload, &response); err != nil || response.Token == "" {
+		t.Fatalf("token de teste ausente: %v", err)
+	}
+	testToken = response.Token
+	return handler
 }
 
-func do(t *testing.T, handler http.Handler, method, route string, body any) (int, []byte) {
+var testToken string
+
+func doWithToken(t *testing.T, handler http.Handler, method, route string, body any, token string) (int, []byte) {
 	t.Helper()
 	var reader io.Reader
 	if body != nil {
@@ -41,9 +59,16 @@ func do(t *testing.T, handler http.Handler, method, route string, body any) (int
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	return recorder.Code, recorder.Body.Bytes()
+}
+
+func do(t *testing.T, handler http.Handler, method, route string, body any) (int, []byte) {
+	return doWithToken(t, handler, method, route, body, testToken)
 }
 
 func decodeInto(t *testing.T, payload []byte, target any) {
@@ -246,8 +271,12 @@ func TestFluxoCompletoDeProjetoETarefa(t *testing.T) {
 		_, payload := do(t, handler, http.MethodGet, "/api/columns?projectId="+projectID, nil)
 		decodeInto(t, payload, &own)
 
+		var projects []model.Project
+		_, payload = do(t, handler, http.MethodGet, "/api/projects", nil)
+		decodeInto(t, payload, &projects)
+		otherProjectID := projects[1].ID
 		var other []model.Column
-		_, payload = do(t, handler, http.MethodGet, "/api/columns?projectId=project-main", nil)
+		_, payload = do(t, handler, http.MethodGet, "/api/columns?projectId="+otherProjectID, nil)
 		decodeInto(t, payload, &other)
 
 		status, body := do(t, handler, http.MethodPost, "/api/tasks", map[string]any{
@@ -353,8 +382,11 @@ func TestFluxoCompletoDeProjetoETarefa(t *testing.T) {
 	})
 
 	t.Run("rejeita mover tarefa para coluna de outro projeto", func(t *testing.T) {
+		var projects []model.Project
+		_, payload := do(t, handler, http.MethodGet, "/api/projects", nil)
+		decodeInto(t, payload, &projects)
 		var columns []model.Column
-		_, payload := do(t, handler, http.MethodGet, "/api/columns?projectId=project-main", nil)
+		_, payload = do(t, handler, http.MethodGet, "/api/columns?projectId="+projects[1].ID, nil)
 		decodeInto(t, payload, &columns)
 
 		status, _ := do(t, handler, http.MethodPost, "/api/tasks/reorder", map[string]any{
@@ -515,6 +547,9 @@ func TestCorpoInvalidoRetorna400(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/tasks", bytes.NewBufferString("{ isso não é json"))
 	request.Header.Set("Content-Type", "application/json")
+	if testToken != "" {
+		request.Header.Set("Authorization", "Bearer "+testToken)
+	}
 	handler.ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusBadRequest {

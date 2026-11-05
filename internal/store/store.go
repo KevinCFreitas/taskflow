@@ -4,12 +4,15 @@
 package store
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"taskflow/internal/model"
 )
@@ -52,62 +55,14 @@ var defaultColumns = []model.Column{
 func defaultData() model.Data {
 	return model.Data{
 		SchemaVersion: 2,
-		CurrentUserID: currentUserID,
-		Users: []model.User{{
-			ID:       currentUserID,
-			Name:     "Kevin",
-			Email:    "kevin@taskflow.local",
-			Initials: "K",
-			Color:    "#3f6152",
-			Role:     "ADMIN",
-		}},
-		Workspaces: []model.Workspace{{
-			ID:          "workspace-personal",
-			Name:        "Meu workspace",
-			Description: "Organização pessoal e profissional",
-			OwnerID:     currentUserID,
-			CreatedAt:   "2026-09-20T09:00:00.000Z",
-		}},
-		Projects: []model.Project{
-			{
-				ID:          "project-main",
-				WorkspaceID: "workspace-personal",
-				Name:        "Operação principal",
-				Description: "Tarefas importantes do dia a dia",
-				Icon:        "✦",
-				Color:       "#3f6152",
-				OwnerID:     currentUserID,
-				CreatedAt:   "2026-09-20T09:00:00.000Z",
-			},
-			{
-				ID:          "project-growth",
-				WorkspaceID: "workspace-personal",
-				Name:        "Estudos e crescimento",
-				Description: "Aprendizados e planos pessoais",
-				Icon:        "↗",
-				Color:       "#3c6377",
-				OwnerID:     currentUserID,
-				CreatedAt:   "2026-09-21T09:00:00.000Z",
-			},
-			{
-				ID:          "project-content",
-				WorkspaceID: "workspace-personal",
-				Name:        "Conteúdo",
-				Description: "Ideias, publicações e projetos criativos",
-				Icon:        "◈",
-				Color:       "#905f18",
-				OwnerID:     currentUserID,
-				CreatedAt:   "2026-09-22T09:00:00.000Z",
-			},
-		},
-		Columns: []model.Column{},
-		Tasks:   []model.Task{},
-		Notes:   []model.Note{},
-		Labels: []model.Label{
-			{ID: "label-focus", Name: "Foco", Color: "#3f6152"},
-			{ID: "label-urgent", Name: "Urgente", Color: "#a8392f"},
-			{ID: "label-team", Name: "Equipe", Color: "#3c6377"},
-		},
+		Users:         []model.User{},
+		Workspaces:    []model.Workspace{},
+		Projects:      []model.Project{},
+		Columns:       []model.Column{},
+		Tasks:         []model.Task{},
+		Notes:         []model.Note{},
+		Labels:        []model.Label{},
+		Sessions:      []model.Session{},
 	}
 }
 
@@ -165,6 +120,70 @@ func (s *Store) Snapshot() model.Data {
 	return s.data
 }
 
+// hashToken resume o token de sessão para que o valor bruto nunca seja persistido.
+func hashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+// CreateSession cria uma sessão persistida para o usuário informado.
+func (s *Store) CreateSession(userID string) (string, error) {
+	token := model.UID() + model.UID()
+	session := model.Session{
+		TokenHash: hashToken(token),
+		UserID:    userID,
+		ExpiresAt: time.Now().UTC().Add(7 * 24 * time.Hour).Format(time.RFC3339),
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data.Sessions = append(s.data.Sessions, session)
+	s.data = normalize(s.data)
+	if err := s.write(); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+// DeleteSession remove a sessão correspondente ao token informado.
+func (s *Store) DeleteSession(token string) {
+	if token == "" {
+		return
+	}
+	hash := hashToken(token)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	filtered := s.data.Sessions[:0]
+	for _, session := range s.data.Sessions {
+		if session.TokenHash != hash {
+			filtered = append(filtered, session)
+		}
+	}
+	s.data.Sessions = filtered
+	_ = s.write()
+}
+
+// SessionUser devolve o usuário dono de um token válido e não expirado.
+func (s *Store) SessionUser(token string) (string, bool) {
+	if token == "" {
+		return "", false
+	}
+	hash := hashToken(token)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	now := time.Now().UTC()
+	for _, session := range s.data.Sessions {
+		if session.TokenHash != hash {
+			continue
+		}
+		expires, err := time.Parse(time.RFC3339, session.ExpiresAt)
+		if err != nil || now.After(expires) {
+			return "", false
+		}
+		return session.UserID, true
+	}
+	return "", false
+}
+
 // Update aplica uma mutação sobre o documento e persiste o resultado.
 func (s *Store) Update(mutate func(data *model.Data)) error {
 	s.mu.Lock()
@@ -175,7 +194,7 @@ func (s *Store) Update(mutate func(data *model.Data)) error {
 }
 
 func (s *Store) write() error {
-	if err := os.MkdirAll(filepath.Dir(s.file), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(s.file), 0o700); err != nil {
 		return err
 	}
 	encoded, err := json.MarshalIndent(s.data, "", "  ")
@@ -183,7 +202,7 @@ func (s *Store) write() error {
 		return err
 	}
 	temporary := s.file + ".tmp"
-	if err := os.WriteFile(temporary, append(encoded, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(temporary, append(encoded, '\n'), 0o600); err != nil {
 		return err
 	}
 	return os.Rename(temporary, s.file)
@@ -221,40 +240,67 @@ func normalize(raw model.Data) model.Data {
 		data.Tasks = []model.Task{}
 	}
 
-	primaryWorkspace := data.Workspaces[0]
-	projects := make([]model.Project, 0, len(data.Projects))
-	for _, project := range data.Projects {
-		if project.ID == "" {
-			project.ID = model.UID()
+	workspaces := make([]model.Workspace, 0, len(data.Workspaces))
+	for _, workspace := range data.Workspaces {
+		if workspace.ID == "" {
+			workspace.ID = model.UID()
 		}
-		if project.WorkspaceID == "" {
-			project.WorkspaceID = primaryWorkspace.ID
+		if workspace.OwnerID == "" && data.CurrentUserID != "" {
+			workspace.OwnerID = data.CurrentUserID
 		}
-		if project.Name == "" {
-			project.Name = "Novo projeto"
+		if workspace.CreatedAt == "" {
+			workspace.CreatedAt = model.Now()
 		}
-		if project.Icon == "" {
-			project.Icon = "✦"
-		}
-		if project.Color == "" {
-			project.Color = "#3f6152"
-		}
-		if project.OwnerID == "" {
-			project.OwnerID = data.CurrentUserID
-		}
-		if project.CreatedAt == "" {
-			project.CreatedAt = model.Now()
-		}
-		projects = append(projects, project)
+		workspaces = append(workspaces, workspace)
 	}
-	data.Projects = projects
+	data.Workspaces = workspaces
+
+	primaryWorkspace := model.Workspace{}
+	projects := make([]model.Project, 0, len(data.Projects))
+	if len(data.Workspaces) > 0 {
+		primaryWorkspace = data.Workspaces[0]
+		for _, project := range data.Projects {
+			if project.ID == "" {
+				project.ID = model.UID()
+			}
+			if project.WorkspaceID == "" {
+				project.WorkspaceID = primaryWorkspace.ID
+			}
+			if project.Name == "" {
+				project.Name = "Novo projeto"
+			}
+			if project.Icon == "" {
+				project.Icon = "✦"
+			}
+			if project.Color == "" {
+				project.Color = "#3f6152"
+			}
+			if project.OwnerID == "" && data.CurrentUserID != "" {
+				project.OwnerID = data.CurrentUserID
+			}
+			if project.CreatedAt == "" {
+				project.CreatedAt = model.Now()
+			}
+			if project.SharedWith == nil {
+				project.SharedWith = []string{}
+			}
+			projects = append(projects, project)
+		}
+		data.Projects = projects
+	} else {
+		data.Projects = []model.Project{}
+		data.Columns = []model.Column{}
+		data.Tasks = []model.Task{}
+	}
 
 	migratePalette(&data)
 
-	mainProject := data.Projects[0]
-	ensureColumns(&data, mainProject, true)
-	for _, project := range data.Projects[1:] {
-		ensureColumns(&data, project, false)
+	if len(data.Projects) > 0 {
+		mainProject := data.Projects[0]
+		ensureColumns(&data, mainProject, true)
+		for _, project := range data.Projects[1:] {
+			ensureColumns(&data, project, false)
+		}
 	}
 
 	validColumnIDs := make(map[string]bool, len(data.Columns))
@@ -271,6 +317,10 @@ func normalize(raw model.Data) model.Data {
 		if task.ID == "" {
 			task.ID = model.UID()
 		}
+		if len(data.Projects) == 0 {
+			continue
+		}
+		mainProject := data.Projects[0]
 		if !projectIDs[task.ProjectID] {
 			task.ProjectID = mainProject.ID
 		}
@@ -310,6 +360,9 @@ func normalize(raw model.Data) model.Data {
 		if note.ID == "" {
 			note.ID = model.UID()
 		}
+		if note.UserID == "" {
+			note.UserID = data.CurrentUserID
+		}
 		if note.Color == "" {
 			note.Color = "default"
 		}
@@ -319,9 +372,31 @@ func normalize(raw model.Data) model.Data {
 		if note.UpdatedAt == "" {
 			note.UpdatedAt = note.CreatedAt
 		}
+		if note.SharedWith == nil {
+			note.SharedWith = []string{}
+		}
 		notes = append(notes, note)
 	}
 	data.Notes = notes
+
+	labels := make([]model.Label, 0, len(data.Labels))
+	for _, label := range data.Labels {
+		if label.ID == "" {
+			label.ID = model.UID()
+		}
+		if label.UserID == "" && data.CurrentUserID != "" {
+			label.UserID = data.CurrentUserID
+		}
+		if label.Color == "" {
+			label.Color = "#3f6152"
+		}
+		labels = append(labels, label)
+	}
+	data.Labels = labels
+
+	if data.Sessions == nil {
+		data.Sessions = []model.Session{}
+	}
 
 	return data
 }

@@ -63,6 +63,8 @@
     theme: readStorage('taskflow-theme') || 'light',
     modal: null,
     userMenu: false,
+    notificationMenu: false,
+    calendarHidden: false,
     draggingTask: null
   };
 
@@ -72,11 +74,12 @@
 
   const api = {
     async request(url, options = {}) {
-      const config = { ...options, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) } };
+      const token = readStorage('taskflow-token');
+      const config = { ...options, credentials: 'include', headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) } };
       const response = await fetch(url, config);
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || 'Não foi possível concluir a operação.');
-      return payload;
+       if (!response.ok) { const error = new Error(payload.error || 'Não foi possível concluir a operação.'); error.status = response.status; throw error; }
+       return payload;
     },
     get(url) { return this.request(url); },
     post(url, body) { return this.request(url, { method: 'POST', body: JSON.stringify(body) }); },
@@ -405,7 +408,7 @@
     const columns = projectColumns(project.id);
     const tabs = `<div class="view-tabs"><button class="view-tab ${state.projectView === 'board' ? 'active' : ''}" data-action="set-project-view" data-project-view="board" type="button">${icon('kanban', 14)} Quadro</button><button class="view-tab ${state.projectView === 'table' ? 'active' : ''}" data-action="set-project-view" data-project-view="table" type="button">${icon('list', 14)} Tabela</button></div>`;
     const filters = `<div class="filter-bar"><select class="filter-select" data-filter="priority" aria-label="Filtrar por prioridade"><option value="all" ${state.filters.priority === 'all' ? 'selected' : ''}>Prioridade</option><option value="urgent" ${state.filters.priority === 'urgent' ? 'selected' : ''}>Urgente</option><option value="high" ${state.filters.priority === 'high' ? 'selected' : ''}>Alta</option><option value="medium" ${state.filters.priority === 'medium' ? 'selected' : ''}>Média</option><option value="low" ${state.filters.priority === 'low' ? 'selected' : ''}>Baixa</option></select><select class="filter-select" data-filter="assignee" aria-label="Filtrar por responsável"><option value="all" ${state.filters.assignee === 'all' ? 'selected' : ''}>Responsável</option>${state.data.members.map((member) => `<option value="${escapeHtml(member.id)}" ${state.filters.assignee === member.id ? 'selected' : ''}>${escapeHtml(member.name)}</option>`).join('')}</select><select class="filter-select" data-filter="status" aria-label="Filtrar por status"><option value="all" ${state.filters.status === 'all' ? 'selected' : ''}>Status</option>${columns.map((column) => `<option value="${escapeHtml(column.id)}" ${state.filters.status === column.id ? 'selected' : ''}>${escapeHtml(column.title)}</option>`).join('')}</select>${state.filters.priority !== 'all' || state.filters.assignee !== 'all' || state.filters.status !== 'all' ? `<button class="filter-chip" data-action="clear-filters" type="button">${icon('x', 12)} Limpar</button>` : ''}</div>`;
-    return `<div class="page"><div class="project-hero"><button class="back-button" data-view="projects" type="button" aria-label="Voltar para projetos">${icon('arrow-left', 16)}</button><span class="project-hero-icon" style="--project-color:${safeColor(project.color)}">${escapeHtml(project.icon || '✦')}</span><div class="project-hero-copy"><h2>${escapeHtml(project.name)}</h2><p>${escapeHtml(project.description || 'Sem descrição adicionada.')}</p></div><div class="project-hero-actions"><button class="button secondary small" data-action="project-settings" data-project-id="${escapeHtml(project.id)}" type="button">${icon('settings', 13)} Editar</button><button class="button primary small" data-action="new-task" type="button">${icon('plus', 13)} Tarefa</button></div></div><div class="toolbar">${tabs}${filters}</div>${state.projectView === 'board' ? renderBoard(project, tasks, columns) : renderTable(project, tasks, columns)}</div>`;
+    return `<div class="page"><div class="project-hero"><button class="back-button" data-view="projects" type="button" aria-label="Voltar para projetos">${icon('arrow-left', 16)}</button><span class="project-hero-icon" style="--project-color:${safeColor(project.color)}">${escapeHtml(project.icon || '✦')}</span><div class="project-hero-copy"><h2>${escapeHtml(project.name)}</h2><p>${escapeHtml(project.description || 'Sem descrição adicionada.')}</p></div><div class="project-hero-actions"><button class="button secondary small" data-action="share-project" data-project-id="${escapeHtml(project.id)}" type="button">${icon('paperclip', 13)} Compartilhar</button><button class="button secondary small" data-action="share-whatsapp" data-project-id="${escapeHtml(project.id)}" type="button">${icon('message', 13)} WhatsApp</button><button class="button secondary small" data-action="project-settings" data-project-id="${escapeHtml(project.id)}" type="button">${icon('settings', 13)} Editar</button><button class="button primary small" data-action="new-task" type="button">${icon('plus', 13)} Tarefa</button></div></div><div class="toolbar">${tabs}${filters}</div>${state.projectView === 'board' ? renderBoard(project, tasks, columns) : renderTable(project, tasks, columns)}</div>`;
   }
 
   function taskCard(task) {
@@ -426,7 +429,7 @@
   function renderCalendar() {
     const start = today();
     const days = Array.from({ length: 7 }, (_, index) => { const date = new Date(start); date.setDate(start.getDate() + index); return date; });
-    return `<div class="page"><div class="page-intro"><div><span class="eyebrow">Planejamento</span><h2>Calendário</h2><p>Uma visão rápida dos próximos sete dias.</p></div><button class="button primary" data-action="new-task" type="button">${icon('plus', 15)} Nova tarefa</button></div><div class="panel calendar-panel"><div class="calendar-week">${days.map((date) => { const dayTasks = (state.data.tasks || []).filter((task) => task.dueDate === isoDate(date) && !isDone(task)); return `<div class="calendar-day ${isoDate(date) === isoDate(start) ? 'today' : ''}"><div class="calendar-day-head"><span>${date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}</span><strong>${date.getDate()}</strong></div>${dayTasks.length ? dayTasks.map((task) => `<button class="calendar-task" data-action="open-task" data-task-id="${escapeHtml(task.id)}" type="button">${escapeHtml(task.title)}</button>`).join('') : '<span class="empty-inline">—</span>'}</div>`; }).join('')}</div></div></div>`;
+    return `<div class="page"><div class="page-intro"><div><span class="eyebrow">Planejamento</span><h2>Calendário</h2><p>Uma visão rápida dos próximos sete dias.</p></div><div class="page-actions"><button class="button secondary small" data-action="toggle-calendar" type="button">${icon('sliders', 13)} ${state.calendarHidden ? 'Mostrar' : 'Ocultar'} calendário</button><button class="button secondary small" data-action="share-calendar-whatsapp" type="button">${icon('message', 13)} WhatsApp</button><button class="button primary" data-action="new-task" type="button">${icon('plus', 15)} Nova tarefa</button></div></div>${state.calendarHidden ? '' : `<div class="panel calendar-panel"><div class="calendar-week">${days.map((date) => { const dayTasks = (state.data.tasks || []).filter((task) => task.dueDate === isoDate(date) && !isDone(task)); return `<div class="calendar-day ${isoDate(date) === isoDate(start) ? 'today' : ''}"><div class="calendar-day-head"><span>${date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}</span><strong>${date.getDate()}</strong></div>${dayTasks.length ? dayTasks.map((task) => `<button class="calendar-task" data-action="open-task" data-task-id="${escapeHtml(task.id)}" type="button">${escapeHtml(task.title)}</button>`).join('') : '<span class="empty-inline">—</span>'}</div>`; }).join('')}</div></div>`}</div>`;
   }
 
   function renderNotes() {
@@ -501,7 +504,7 @@
     const colors = { default: '#3f6152', blue: '#3c6377', green: '#2b6b4f', amber: '#905f18', purple: '#5b5170', rose: '#8a4a5c' };
     const colorKeys = Object.keys(colors);
     const body = `<input type="hidden" name="id" value="${escapeHtml(current.id || '')}"><input type="hidden" name="color" value="${escapeHtml(current.color || 'default')}"><div class="form-grid"><label class="form-field full"><span class="form-label">Título</span><input class="form-control" name="title" maxlength="100" placeholder="Dê um nome para a nota" value="${escapeHtml(current.title || '')}"></label><label class="form-field full"><span class="form-label">Conteúdo</span><textarea class="form-control" name="content" rows="7" placeholder="Escreva sua ideia...">${escapeHtml(current.content || '')}</textarea></label><div class="form-field full"><span class="form-label">Cor</span><div class="color-options">${colorKeys.map((key) => `<button class="color-option ${current.color === key ? 'active' : ''}" style="--color-value:${colors[key]}" data-select-field="color" data-value="${key}" type="button" aria-label="Cor ${key}"></button>`).join('')}</div></div><label class="form-field full"><span class="form-label">Fixar no topo</span><span class="workspace-summary"><input type="checkbox" name="pinned" ${current.pinned ? 'checked' : ''}> Manter esta nota sempre visível</span></label></div>`;
-    const footer = `${current.id ? `<button class="button danger danger-action" data-action="delete-note" data-note-id="${escapeHtml(current.id)}" type="button">${icon('trash', 13)} Excluir</button>` : ''}<button class="button secondary" data-action="close-modal" type="button">Cancelar</button><button class="button primary" type="submit">${current.id ? 'Salvar nota' : 'Criar nota'}</button>`;
+    const footer = `${current.id ? `<button class="button secondary" data-action="share-note" data-note-id="${escapeHtml(current.id)}" type="button">${icon('paperclip', 13)} Compartilhar</button><button class="button danger danger-action" data-action="delete-note" data-note-id="${escapeHtml(current.id)}" type="button">${icon('trash', 13)} Excluir</button>` : ''}<button class="button secondary" data-action="close-modal" type="button">Cancelar</button><button class="button primary" type="submit">${current.id ? 'Salvar nota' : 'Criar nota'}</button>`;
     return modalShell(current.id ? 'Editar nota' : 'Nova nota', 'Guarde uma ideia sem interromper o fluxo.', body, footer, 'note');
   }
 
@@ -544,19 +547,51 @@
     setTimeout(() => toast.remove(), 3200);
   }
 
-  async function refresh(message) {
-    try {
-      state.data = await api.get('/api/bootstrap');
-      if (!state.projectId || !state.data.projects.some((project) => project.id === state.projectId)) state.projectId = state.data.projects[0]?.id || null;
-      render();
-      if (message) showToast(message);
-    } catch (error) {
-      appContent.innerHTML = `<div class="empty-state"><span class="empty-state-icon">${icon('alert', 22)}</span><h3>Não foi possível carregar</h3><p>${escapeHtml(error.message)}</p><button class="button primary" data-action="retry" type="button">${icon('refresh-cw', 14)} Tentar novamente</button></div>`;
-      hydrateIcons(appContent);
-    }
-  }
+   const notificationPanel = document.createElement('div');
+   notificationPanel.className = 'notification-panel';
+   document.body.appendChild(notificationPanel);
 
-  async function submitTask(form) {
+   function renderNotifications() {
+     if (!state.notificationMenu) { notificationPanel.classList.remove('open'); return; }
+     const today = new Date().toISOString().slice(0, 10);
+     const overdue = (state.data?.tasks || []).filter((task) => !isDone(task) && task.dueDate && task.dueDate < today);
+     const dueToday = (state.data?.tasks || []).filter((task) => !isDone(task) && task.dueDate === today);
+     const items = [...overdue.map((task) => ({ text: `Atrasada: ${task.title}`, type: 'error' })), ...dueToday.map((task) => ({ text: `Vence hoje: ${task.title}`, type: 'warning' }))];
+     notificationPanel.innerHTML = `<div class="notification-header"><strong>Notificações</strong><button class="icon-button" data-action="close-notifications" type="button">${icon('x', 14)}</button></div>${items.length ? items.map((item) => `<div class="notification-item ${item.type}">${escapeHtml(item.text)}</div>`).join('') : '<div class="empty-inline">Nenhuma notificação no momento.</div>'}`;
+     notificationPanel.classList.add('open');
+     hydrateIcons(notificationPanel);
+   }
+
+   async function refresh(message) {
+     try {
+       state.data = await api.get('/api/bootstrap');
+       if (!state.projectId || !state.data.projects.some((project) => project.id === state.projectId)) state.projectId = state.data.projects[0]?.id || null;
+       const sidebar = document.querySelector('.sidebar');
+       if (sidebar) sidebar.style.display = '';
+       render();
+       if (message) showToast(message);
+     } catch (error) {
+       if (error.status === 401) {
+         try { localStorage.removeItem('taskflow-token'); } catch (error) {}
+         renderAuth();
+         return;
+       }
+       appContent.innerHTML = `<div class="empty-state"><span class="empty-state-icon">${icon('alert', 22)}</span><h3>Não foi possível carregar</h3><p>${escapeHtml(error.message)}</p><button class="button primary" data-action="retry" type="button">${icon('refresh-cw', 14)} Tentar novamente</button></div>`;
+       hydrateIcons(appContent);
+     }
+   }
+
+   let authMode = 'login';
+
+   function renderAuth() {
+     const isRegister = authMode === 'register';
+     const sidebar = document.querySelector('.sidebar');
+     if (sidebar) sidebar.style.display = 'none';
+     appContent.innerHTML = `<section class="auth-shell"><div class="auth-card"><div class="auth-brand"><div class="brand-mark">T</div><strong>taskflow</strong><span>organize sem complicar</span></div><h2>${isRegister ? 'Criar conta' : 'Entrar'}</h2><p>${isRegister ? 'Crie seu espaço privado de trabalho.' : 'Acesse seu workspace com segurança.'}</p><form data-auth-form="${isRegister ? 'register' : 'login'}" class="auth-form"><div class="form-grid">${isRegister ? `<label class="form-field full"><span class="form-label">Nome</span><input class="form-control" name="name" type="text" required autocomplete="name"></label>` : ''}<label class="form-field full"><span class="form-label">E-mail</span><input class="form-control" name="email" type="email" required autocomplete="email"></label><label class="form-field full"><span class="form-label">Senha</span><input class="form-control" name="password" type="password" required minlength="8" autocomplete="${isRegister ? 'new-password' : 'current-password'}"></label></div><div class="modal-footer"><button class="button primary" type="submit">${isRegister ? 'Criar conta' : 'Entrar'}</button></div></form><button class="text-button auth-toggle" type="button" data-action="auth-toggle">${isRegister ? 'Já tenho conta' : 'Criar nova conta'}</button></div></section>`;
+     hydrateIcons(appContent);
+   }
+
+   async function submitTask(form) {
     const formData = new FormData(form);
     const id = formData.get('id');
     const payload = { title: formData.get('title'), description: formData.get('description'), projectId: formData.get('projectId'), columnId: formData.get('columnId'), assigneeId: formData.get('assigneeId'), priority: formData.get('priority'), dueDate: formData.get('dueDate') || null, labels: String(formData.get('labels') || '').split(',').map((label) => label.trim()).filter(Boolean) };
@@ -691,7 +726,7 @@
     document.documentElement.dataset.theme = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme;
   }
 
-  function handleClick(event) {
+   async function handleClick(event) {
     const closeTarget = event.target.closest('[data-close-modal]');
     if (closeTarget && !event.target.closest('[data-modal-card]')) {
       closeModal();
@@ -722,12 +757,46 @@
       if (action === 'delete-task') { deleteTask(actionTarget.dataset.taskId); return; }
       if (action === 'duplicate-task') { duplicateTask(actionTarget.dataset.taskId); return; }
       if (action === 'delete-project') { deleteProject(actionTarget.dataset.projectId); return; }
-      if (action === 'delete-note') { deleteNote(actionTarget.dataset.noteId); return; }
+       if (action === 'share-note') {
+         const email = window.prompt('E-mail do usuário para compartilhar esta nota:');
+         if (!email) return;
+         try {
+           await api.post(`/api/notes/${actionTarget.dataset.noteId}/share`, { email });
+           showToast('Nota compartilhada');
+           closeModal();
+           await refresh();
+         } catch (error) {
+           showToast(error.message, 'error');
+         }
+         return;
+       }
+       if (action === 'share-project') {
+         const email = window.prompt('E-mail do usuário para compartilhar este projeto:');
+         if (!email) return;
+         try { await api.post(`/api/projects/${actionTarget.dataset.projectId}/share`, { email }); showToast('Projeto compartilhado'); await refresh(); } catch (error) { showToast(error.message, 'error'); }
+         return;
+       }
+       if (action === 'toggle-calendar') { state.calendarHidden = !state.calendarHidden; render(); return; }
+       if (action === 'share-calendar-whatsapp') {
+         const upcoming = (state.data.tasks || []).filter((task) => !isDone(task) && task.dueDate).sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))).slice(0, 12);
+         const text = `Calendário Taskflow:%0A${upcoming.map((task) => `- ${task.title} (${task.dueDate})`).join('%0A')}`;
+         window.open(`https://wa.me/?text=${text}`, '_blank');
+         return;
+       }
+       if (action === 'share-whatsapp') {
+         const project = getProject(actionTarget.dataset.projectId);
+         const tasks = state.data.tasks.filter((task) => task.projectId === project.id);
+         const text = `Projeto: ${project.name}%0A${tasks.map((task) => `- ${task.title} (${statusLabel(task)})`).join('%0A')}`;
+         window.open(`https://wa.me/?text=${text}`, '_blank');
+         return;
+       }
+       if (action === 'delete-note') { deleteNote(actionTarget.dataset.noteId); return; }
       if (action === 'set-theme') { applyTheme(actionTarget.dataset.theme); render(); return; }
-      if (action === 'user-menu' || action === 'topbar-user') { state.userMenu = !state.userMenu; renderUserMenu(); return; }
+       if (action === 'close-notifications') { state.notificationMenu = false; renderNotifications(); return; }
+       if (action === 'user-menu' || action === 'topbar-user') { state.userMenu = !state.userMenu; renderUserMenu(); return; }
       if (action === 'user-settings') { state.userMenu = false; setView('settings'); return; }
       if (action === 'user-shortcuts') { state.userMenu = false; openModal('search', { query: '' }); return; }
-      if (action === 'logout') { state.userMenu = false; showToast('Sessão local mantida para demonstração'); return; }
+      if (action === 'logout') { state.userMenu = false; try { await api.post('/api/auth/logout', {}); } catch (error) {} writeStorage('taskflow-token', ''); try { localStorage.removeItem('taskflow-token'); } catch (error) {} state.data = null; renderAuth(); return; }
       if (action === 'retry') { refresh(); return; }
     }
     if (projectTarget && !actionTarget) {
@@ -853,15 +922,47 @@
   document.querySelector('#sidebar-overlay').addEventListener('click', closeSidebar);
   document.querySelector('#search-trigger').addEventListener('click', () => openModal('search', { query: state.search }));
   document.querySelector('#theme-button').addEventListener('click', () => applyTheme(state.theme === 'dark' ? 'light' : 'dark'));
-  document.querySelector('#topbar-user').addEventListener('click', () => { state.userMenu = !state.userMenu; renderUserMenu(); });
-  modalRoot.addEventListener('submit', (event) => {
-    event.preventDefault();
-    const form = event.target.closest('[data-form]');
-    if (!form) return;
-    if (form.dataset.form === 'task') submitTask(form);
-    if (form.dataset.form === 'project') submitProject(form);
-    if (form.dataset.form === 'note') submitNote(form);
-  });
+   document.querySelector('#topbar-user').addEventListener('click', () => { state.userMenu = !state.userMenu; renderUserMenu(); });
+   document.querySelector('#notification-button')?.addEventListener('click', (event) => { event.stopPropagation(); state.notificationMenu = !state.notificationMenu; renderNotifications(); });
+   document.addEventListener('click', (event) => {
+     if (!event.target.closest('.notification-panel') && !event.target.closest('#notification-button')) {
+       state.notificationMenu = false;
+       renderNotifications();
+     }
+   });
+   modalRoot.addEventListener('submit', (event) => {
+     event.preventDefault();
+     const form = event.target.closest('[data-form]');
+     if (!form) return;
+     if (form.dataset.form === 'task') submitTask(form);
+     if (form.dataset.form === 'project') submitProject(form);
+     if (form.dataset.form === 'note') submitNote(form);
+   });
+   appContent.addEventListener('submit', async (event) => {
+     const form = event.target.closest('[data-auth-form]');
+     if (!form) return;
+     event.preventDefault();
+     const mode = form.dataset.authForm;
+     const payload = {
+       name: form.querySelector('[name="name"]')?.value,
+       email: form.querySelector('[name="email"]')?.value,
+       password: form.querySelector('[name="password"]')?.value
+     };
+     try {
+       const response = await api.post(`/api/auth/${mode}`, payload);
+       if (response.token) writeStorage('taskflow-token', response.token);
+       authMode = 'login';
+       await refresh();
+     } catch (error) {
+       showToast(error.message, 'error');
+     }
+   });
+   appContent.addEventListener('click', (event) => {
+     const toggle = event.target.closest('[data-action="auth-toggle"]');
+     if (!toggle) return;
+     authMode = authMode === 'login' ? 'register' : 'login';
+     renderAuth();
+   });
   modalRoot.addEventListener('click', (event) => {
     const select = event.target.closest('[data-select-field]');
     if (!select) return;

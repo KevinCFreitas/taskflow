@@ -3,21 +3,25 @@
 package model
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
 
 // User representa um membro do workspace.
 type User struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Initials string `json:"initials"`
-	Color    string `json:"color"`
-	Role     string `json:"role"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	Initials     string `json:"initials"`
+	Color        string `json:"color"`
+	Role         string `json:"role"`
+	PasswordHash string `json:"passwordHash"`
 }
 
 // Workspace agrupa projetos sob um mesmo contexto de trabalho.
@@ -31,14 +35,15 @@ type Workspace struct {
 
 // Project é a unidade de organização que possui colunas e tarefas.
 type Project struct {
-	ID          string `json:"id"`
-	WorkspaceID string `json:"workspaceId"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Icon        string `json:"icon"`
-	Color       string `json:"color"`
-	OwnerID     string `json:"ownerId"`
-	CreatedAt   string `json:"createdAt"`
+	ID          string   `json:"id"`
+	WorkspaceID string   `json:"workspaceId"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Icon        string   `json:"icon"`
+	Color       string   `json:"color"`
+	OwnerID     string   `json:"ownerId"`
+	SharedWith  []string `json:"sharedWith"`
+	CreatedAt   string   `json:"createdAt"`
 }
 
 // Column é uma etapa do quadro (kanban) de um projeto.
@@ -69,23 +74,32 @@ type Task struct {
 
 // Note é um cartão de texto livre (ideias, lembretes, decisões).
 type Note struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
-	Content   string `json:"content"`
-	Color     string `json:"color"`
-	Pinned    bool   `json:"pinned"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	ID         string   `json:"id"`
+	UserID     string   `json:"-"`
+	Title      string   `json:"title"`
+	Content    string   `json:"content"`
+	Color      string   `json:"color"`
+	Pinned     bool     `json:"pinned"`
+	SharedWith []string `json:"sharedWith"`
+	CreatedAt  string   `json:"createdAt"`
+	UpdatedAt  string   `json:"updatedAt"`
 }
 
 // Label é uma etiqueta colorida aplicável a tarefas.
 type Label struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Color string `json:"color"`
+	ID     string `json:"id"`
+	UserID string `json:"-"`
+	Name   string `json:"name"`
+	Color  string `json:"color"`
 }
 
 // Data é o documento completo persistido em storage/data.json.
+type Session struct {
+	TokenHash string `json:"tokenHash"`
+	UserID    string `json:"userId"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
 type Data struct {
 	SchemaVersion int         `json:"schemaVersion"`
 	CurrentUserID string      `json:"currentUserId"`
@@ -96,6 +110,7 @@ type Data struct {
 	Tasks         []Task      `json:"tasks"`
 	Notes         []Note      `json:"notes"`
 	Labels        []Label     `json:"labels"`
+	Sessions      []Session   `json:"sessions"`
 }
 
 // Bootstrap é o payload consumido pelo front em /api/bootstrap.
@@ -167,6 +182,68 @@ func StrPtr(value string) *string { return &value }
 
 // Now retorna o instante atual no formato ISO-8601 usado em toda a API.
 func Now() string { return time.Now().UTC().Format("2006-01-02T15:04:05.000Z07:00") }
+
+// HashPassword deriva uma senha com PBKDF2-HMAC-SHA256 para armazenamento seguro.
+func HashPassword(password string) (string, error) {
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		return "", err
+	}
+	iterations := 100000
+	key := pbkdf2SHA256(password, salt, iterations, 32)
+	return fmt.Sprintf("pbkdf2-sha256$%d$%s$%s", iterations, hex.EncodeToString(salt), hex.EncodeToString(key)), nil
+}
+
+// VerifyPassword compara uma senha em texto com o hash armazenado.
+func VerifyPassword(encoded, password string) bool {
+	parts := strings.Split(encoded, "$")
+	if len(parts) != 4 || parts[0] != "pbkdf2-sha256" {
+		return false
+	}
+	iterations, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return false
+	}
+	salt, err := hex.DecodeString(parts[2])
+	if err != nil {
+		return false
+	}
+	expected, err := hex.DecodeString(parts[3])
+	if err != nil {
+		return false
+	}
+	actual := pbkdf2SHA256(password, salt, iterations, len(expected))
+	return hmac.Equal(actual, expected)
+}
+
+func pbkdf2SHA256(password string, salt []byte, iterations, keyLen int) []byte {
+	prf := hmac.New(sha256.New, []byte(password))
+	hashLen := sha256.Size
+	blocks := (keyLen + hashLen - 1) / hashLen
+	result := make([]byte, 0, blocks*hashLen)
+	for block := 1; block <= blocks; block++ {
+		prf.Reset()
+		prf.Write(salt)
+		var counter [4]byte
+		counter[0] = byte(block >> 24)
+		counter[1] = byte(block >> 16)
+		counter[2] = byte(block >> 8)
+		counter[3] = byte(block)
+		prf.Write(counter[:])
+		u := prf.Sum(nil)
+		t := append([]byte(nil), u...)
+		for i := 1; i < iterations; i++ {
+			prf.Reset()
+			prf.Write(u)
+			u = prf.Sum(nil)
+			for j := range t {
+				t[j] ^= u[j]
+			}
+		}
+		result = append(result, t...)
+	}
+	return result[:keyLen]
+}
 
 // UID gera um identificador único no formato UUID v4.
 func UID() string {

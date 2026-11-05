@@ -3,136 +3,140 @@
   "currentUserId": "user-kevin",
   "users": [
     {
-      "id": "user-kevin",
-      "name": "Kevin",
-      "email": "kevin@taskflow.local",
-      "initials": "K",
+      "id": "2ce591f3-4edb-4a21-91d9-9bd07670d5a1",
+      "name": "Kevin Clemente de Freitas",
+      "email": "kevin2004clementefreitas@gmail.com",
+      "initials": "KF",
       "color": "#3f6152",
-      "role": "ADMIN"
+      "role": "MEMBER",
+      "passwordHash": "pbkdf2-sha256$100000$309d45bc50eca8662c84091aefb1cce3$c89097c2bfa2c5c96e49ea387881fb75c217bd7c6252f29e1097d55ba2e06e4a"
     }
   ],
   "workspaces": [
     {
-      "id": "workspace-personal",
+      "id": "a18bd740-02cf-48d4-8353-d9ddf9b5cb2e",
       "name": "Meu workspace",
       "description": "Organização pessoal e profissional",
-      "ownerId": "user-kevin",
-      "createdAt": "2026-09-20T09:00:00.000Z"
+      "ownerId": "2ce591f3-4edb-4a21-91d9-9bd07670d5a1",
+      "createdAt": "2026-11-05T16:09:45.446Z"
     }
   ],
   "projects": [
     {
-      "id": "project-main",
-      "workspaceId": "workspace-personal",
+      "id": "ca484034-c751-49ff-90cd-c870a78997d0",
+      "workspaceId": "a18bd740-02cf-48d4-8353-d9ddf9b5cb2e",
       "name": "Operação principal",
       "description": "Tarefas importantes do dia a dia",
       "icon": "✦",
       "color": "#3f6152",
-      "ownerId": "user-kevin",
-      "createdAt": "2026-09-20T09:00:00.000Z"
+      "ownerId": "2ce591f3-4edb-4a21-91d9-9bd07670d5a1",
+      "sharedWith": [],
+      "createdAt": "2026-11-05T16:09:45.446Z"
     },
     {
-      "id": "project-growth",
-      "workspaceId": "workspace-personal",
+      "id": "d5a154fd-8ba6-4890-84e0-8a365b824fc8",
+      "workspaceId": "a18bd740-02cf-48d4-8353-d9ddf9b5cb2e",
       "name": "Estudos e crescimento",
       "description": "Aprendizados e planos pessoais",
       "icon": "↗",
       "color": "#3c6377",
-      "ownerId": "user-kevin",
-      "createdAt": "2026-09-21T09:00:00.000Z"
+      "ownerId": "2ce591f3-4edb-4a21-91d9-9bd07670d5a1",
+      "sharedWith": [],
+      "createdAt": "2026-11-05T16:09:45.446Z"
     },
     {
-      "id": "project-content",
-      "workspaceId": "workspace-personal",
+      "id": "5fef695e-57e2-4c85-8949-bd0b2f6aa781",
+      "workspaceId": "a18bd740-02cf-48d4-8353-d9ddf9b5cb2e",
       "name": "Conteúdo",
       "description": "Ideias, publicações e projetos criativos",
       "icon": "◈",
       "color": "#905f18",
-      "ownerId": "user-kevin",
-      "createdAt": "2026-09-22T09:00:00.000Z"
+      "ownerId": "2ce591f3-4edb-4a21-91d9-9bd07670d5a1",
+      "sharedWith": [],
+      "createdAt": "2026-11-05T16:09:45.446Z"
     }
   ],
   "columns": [
     {
-      "id": "todo",
-      "projectId": "project-main",
-      "title": "A Fazer",
-      "color": "#5a6472",
-      "order": 0
-    },
-    {
-      "id": "progress",
-      "projectId": "project-main",
-      "title": "Em Andamento",
-      "color": "#905f18",
-      "order": 1
-    },
-    {
-      "id": "review",
-      "projectId": "project-main",
-      "title": "Revisao",
-      "color": "#3c6377",
-      "order": 2
-    },
-    {
-      "id": "done",
-      "projectId": "project-main",
-      "title": "Concluido",
-      "color": "#2b6b4f",
-      "order": 3
-    },
-    {
-      "id": "project-growth-todo",
-      "projectId": "project-growth",
+      "id": "ca484034-c751-49ff-90cd-c870a78997d0-todo",
+      "projectId": "ca484034-c751-49ff-90cd-c870a78997d0",
       "title": "A fazer",
       "color": "#5a6472",
       "order": 0
     },
     {
-      "id": "project-growth-progress",
-      "projectId": "project-growth",
+      "id": "ca484034-c751-49ff-90cd-c870a78997d0-progress",
+      "projectId": "ca484034-c751-49ff-90cd-c870a78997d0",
       "title": "Em andamento",
       "color": "#905f18",
       "order": 1
     },
     {
-      "id": "project-growth-review",
-      "projectId": "project-growth",
+      "id": "ca484034-c751-49ff-90cd-c870a78997d0-review",
+      "projectId": "ca484034-c751-49ff-90cd-c870a78997d0",
       "title": "Em revisão",
       "color": "#3c6377",
       "order": 2
     },
     {
-      "id": "project-growth-done",
-      "projectId": "project-growth",
+      "id": "ca484034-c751-49ff-90cd-c870a78997d0-done",
+      "projectId": "ca484034-c751-49ff-90cd-c870a78997d0",
       "title": "Concluído",
       "color": "#2b6b4f",
       "order": 3
     },
     {
-      "id": "project-content-todo",
-      "projectId": "project-content",
+      "id": "d5a154fd-8ba6-4890-84e0-8a365b824fc8-todo",
+      "projectId": "d5a154fd-8ba6-4890-84e0-8a365b824fc8",
       "title": "A fazer",
       "color": "#5a6472",
       "order": 0
     },
     {
-      "id": "project-content-progress",
-      "projectId": "project-content",
+      "id": "d5a154fd-8ba6-4890-84e0-8a365b824fc8-progress",
+      "projectId": "d5a154fd-8ba6-4890-84e0-8a365b824fc8",
       "title": "Em andamento",
       "color": "#905f18",
       "order": 1
     },
     {
-      "id": "project-content-review",
-      "projectId": "project-content",
+      "id": "d5a154fd-8ba6-4890-84e0-8a365b824fc8-review",
+      "projectId": "d5a154fd-8ba6-4890-84e0-8a365b824fc8",
       "title": "Em revisão",
       "color": "#3c6377",
       "order": 2
     },
     {
-      "id": "project-content-done",
-      "projectId": "project-content",
+      "id": "d5a154fd-8ba6-4890-84e0-8a365b824fc8-done",
+      "projectId": "d5a154fd-8ba6-4890-84e0-8a365b824fc8",
+      "title": "Concluído",
+      "color": "#2b6b4f",
+      "order": 3
+    },
+    {
+      "id": "5fef695e-57e2-4c85-8949-bd0b2f6aa781-todo",
+      "projectId": "5fef695e-57e2-4c85-8949-bd0b2f6aa781",
+      "title": "A fazer",
+      "color": "#5a6472",
+      "order": 0
+    },
+    {
+      "id": "5fef695e-57e2-4c85-8949-bd0b2f6aa781-progress",
+      "projectId": "5fef695e-57e2-4c85-8949-bd0b2f6aa781",
+      "title": "Em andamento",
+      "color": "#905f18",
+      "order": 1
+    },
+    {
+      "id": "5fef695e-57e2-4c85-8949-bd0b2f6aa781-review",
+      "projectId": "5fef695e-57e2-4c85-8949-bd0b2f6aa781",
+      "title": "Em revisão",
+      "color": "#3c6377",
+      "order": 2
+    },
+    {
+      "id": "5fef695e-57e2-4c85-8949-bd0b2f6aa781-done",
+      "projectId": "5fef695e-57e2-4c85-8949-bd0b2f6aa781",
       "title": "Concluído",
       "color": "#2b6b4f",
       "order": 3
@@ -140,159 +144,91 @@
   ],
   "tasks": [
     {
-      "id": "33d2d835-87b2-41f0-a4fb-51cd55590431",
-      "title": "levar os nobreaks",
-      "description": "",
-      "priority": "high",
-      "dueDate": null,
-      "columnId": "done",
-      "order": 0,
-      "projectId": "project-main",
-      "assigneeId": "user-kevin",
-      "labels": [],
-      "createdAt": "2026-09-25T13:04:53.247Z",
-      "updatedAt": "2026-09-25T14:19:04.058Z",
-      "completedAt": "2026-09-25T14:19:04.058Z"
-    },
-    {
-      "id": "b40502df-4cca-4564-af27-8f5a13ff5f3c",
-      "title": "fechar chamados",
+      "id": "022e87b8-a920-4c9f-a273-2d0ce487542e",
+      "title": "testes",
       "description": "",
       "priority": "medium",
       "dueDate": null,
-      "columnId": "done",
-      "order": 9999,
-      "projectId": "project-main",
-      "assigneeId": "user-kevin",
-      "labels": [],
-      "createdAt": "2026-09-25T13:04:57.594Z",
-      "updatedAt": "2026-09-28T13:25:55.894Z",
-      "completedAt": "2026-09-28T13:25:55.894Z"
-    },
-    {
-      "id": "f65d1d78-e66d-49cc-a8ce-6d9761681190",
-      "title": "arrumar impressora controlados",
-      "description": "",
-      "priority": "high",
-      "dueDate": null,
-      "columnId": "done",
-      "order": 0,
-      "projectId": "project-main",
-      "assigneeId": "user-kevin",
-      "labels": [],
-      "createdAt": "2026-09-25T13:05:15.049Z",
-      "updatedAt": "2026-09-28T13:25:56.859Z",
-      "completedAt": "2026-09-28T13:25:56.859Z"
-    },
-    {
-      "id": "9f056922-6084-4056-b484-d8f331a7b509",
-      "title": "resolver problemas do homelab",
-      "description": "",
-      "priority": "low",
-      "dueDate": null,
-      "columnId": "done",
-      "order": 9999,
-      "projectId": "project-main",
-      "assigneeId": "user-kevin",
-      "labels": [],
-      "createdAt": "2026-09-25T13:05:39.114Z",
-      "updatedAt": "2026-09-28T13:25:57.510Z",
-      "completedAt": "2026-09-28T13:25:57.510Z"
-    },
-    {
-      "id": "9b445984-6380-4260-ae59-e7332d5ffc6b",
-      "title": "validar os computadores",
-      "description": "",
-      "priority": "medium",
-      "dueDate": null,
-      "columnId": "done",
-      "order": 9999,
-      "projectId": "project-main",
-      "assigneeId": "user-kevin",
-      "labels": [],
-      "createdAt": "2026-09-25T13:05:49.801Z",
-      "updatedAt": "2026-09-28T13:25:58.216Z",
-      "completedAt": "2026-09-28T13:25:58.216Z"
-    },
-    {
-      "id": "3c058657-0b5e-48bf-a124-d108bd8492fb",
-      "title": "levar os pcs dhibison",
-      "description": "",
-      "priority": "medium",
-      "dueDate": null,
-      "columnId": "done",
-      "order": 1,
-      "projectId": "project-main",
-      "assigneeId": "user-kevin",
-      "labels": [],
-      "createdAt": "2026-09-25T13:06:28.424Z",
-      "updatedAt": "2026-09-25T14:19:04.058Z",
-      "completedAt": "2026-09-25T14:19:03.353Z"
-    },
-    {
-      "id": "5da1b196-558f-4142-97e8-934352cea661",
-      "title": "comprar remedios",
-      "description": "",
-      "priority": "high",
-      "dueDate": null,
-      "columnId": "done",
-      "order": 9999,
-      "projectId": "project-main",
-      "assigneeId": "user-kevin",
-      "labels": [],
-      "createdAt": "2026-09-25T13:09:54.779Z",
-      "updatedAt": "2026-09-28T13:25:58.635Z",
-      "completedAt": "2026-09-28T13:25:58.635Z"
-    },
-    {
-      "id": "c46810fd-213b-4d34-a3fb-260ab81791cc",
-      "title": "arrumar o quarto",
-      "description": "",
-      "priority": "low",
-      "dueDate": null,
-      "columnId": "done",
-      "order": 9999,
-      "projectId": "project-main",
-      "assigneeId": "user-kevin",
-      "labels": [],
-      "createdAt": "2026-09-25T13:10:00.164Z",
-      "updatedAt": "2026-09-28T13:25:58.832Z",
-      "completedAt": "2026-09-28T13:25:58.832Z"
-    },
-    {
-      "id": "a54a2531-c9ba-48cb-ae8e-177fa0acafe9",
-      "title": "consulta",
-      "description": "",
-      "priority": "high",
-      "dueDate": "2026-11-17",
-      "columnId": "todo",
+      "columnId": "ca484034-c751-49ff-90cd-c870a78997d0-todo",
       "order": 4,
-      "projectId": "project-main",
-      "assigneeId": "user-kevin",
+      "projectId": "ca484034-c751-49ff-90cd-c870a78997d0",
+      "assigneeId": "2ce591f3-4edb-4a21-91d9-9bd07670d5a1",
+      "labels": [],
+      "createdAt": "2026-11-05T16:10:07.940Z",
+      "updatedAt": "2026-11-05T16:10:19.086Z",
+      "completedAt": null
+    },
+    {
+      "id": "b3b05d09-c14d-4033-bdb7-3a4a293fb151",
+      "title": "neuro",
+      "description": "testes para laudo",
+      "priority": "medium",
+      "dueDate": "2026-11-06",
+      "columnId": "ca484034-c751-49ff-90cd-c870a78997d0-progress",
+      "order": 4,
+      "projectId": "ca484034-c751-49ff-90cd-c870a78997d0",
+      "assigneeId": "2ce591f3-4edb-4a21-91d9-9bd07670d5a1",
       "labels": [
         "urgente"
       ],
-      "createdAt": "2026-11-04T15:45:18.948Z",
-      "updatedAt": "2026-11-04T15:45:29.904Z",
+      "createdAt": "2026-11-05T16:11:37.176Z",
+      "updatedAt": "2026-11-05T16:11:37.176Z",
+      "completedAt": null
+    },
+    {
+      "id": "ae47affb-957d-4e9a-b56a-1cf63476b871",
+      "title": "psiquiatra",
+      "description": "",
+      "priority": "medium",
+      "dueDate": "2026-11-17",
+      "columnId": "ca484034-c751-49ff-90cd-c870a78997d0-todo",
+      "order": 4,
+      "projectId": "ca484034-c751-49ff-90cd-c870a78997d0",
+      "assigneeId": "2ce591f3-4edb-4a21-91d9-9bd07670d5a1",
+      "labels": [],
+      "createdAt": "2026-11-05T16:13:05.152Z",
+      "updatedAt": "2026-11-05T16:13:05.152Z",
+      "completedAt": null
+    },
+    {
+      "id": "c38b8575-e92a-4e0e-ac10-f0a79df2e08d",
+      "title": "atividade civil 3 processos",
+      "description": "",
+      "priority": "low",
+      "dueDate": "2026-11-26",
+      "columnId": "ca484034-c751-49ff-90cd-c870a78997d0-todo",
+      "order": 4,
+      "projectId": "ca484034-c751-49ff-90cd-c870a78997d0",
+      "assigneeId": "2ce591f3-4edb-4a21-91d9-9bd07670d5a1",
+      "labels": [],
+      "createdAt": "2026-11-05T16:13:43.121Z",
+      "updatedAt": "2026-11-05T16:13:43.121Z",
       "completedAt": null
     }
   ],
   "notes": [],
   "labels": [
     {
-      "id": "label-focus",
+      "id": "6ed10770-e89d-4652-b035-77706f8a6860",
       "name": "Foco",
       "color": "#3f6152"
     },
     {
-      "id": "label-urgent",
+      "id": "42aab833-ceca-40de-b6ec-7408eb59bc59",
       "name": "Urgente",
       "color": "#a8392f"
     },
     {
-      "id": "label-team",
+      "id": "416a7ac8-fde4-45a2-bdba-46cc45a8ff49",
       "name": "Equipe",
       "color": "#3c6377"
+    }
+  ],
+  "sessions": [
+    {
+      "tokenHash": "c070cba150b612c08f414fcb8737b9d027a6912a85c75eaaa34a4ef65d93bf83",
+      "userId": "2ce591f3-4edb-4a21-91d9-9bd07670d5a1",
+      "expiresAt": "2026-11-12T16:09:45Z"
     }
   ]
 }

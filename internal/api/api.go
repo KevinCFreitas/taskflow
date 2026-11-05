@@ -3,16 +3,20 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	"taskflow/internal/model"
 	"taskflow/internal/store"
@@ -40,6 +44,16 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/health", s.handleHealth)
+
+	mux.HandleFunc("POST /api/auth/register", s.handleRegister)
+	mux.HandleFunc("POST /api/auth/login", s.handleLogin)
+	mux.HandleFunc("POST /api/auth/logout", s.handleLogout)
+	mux.HandleFunc("GET /api/auth/me", s.handleMe)
+	mux.HandleFunc("POST /api/register", s.handleRegister)
+	mux.HandleFunc("POST /api/login", s.handleLogin)
+	mux.HandleFunc("POST /api/logout", s.handleLogout)
+	mux.HandleFunc("GET /api/me", s.handleMe)
+
 	mux.HandleFunc("GET /api/bootstrap", s.handleBootstrap)
 
 	mux.HandleFunc("GET /api/workspaces", s.handleListWorkspaces)
@@ -51,6 +65,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/projects/{id}", s.handleUpdateProject)
 	mux.HandleFunc("PATCH /api/projects/{id}", s.handleUpdateProject)
 	mux.HandleFunc("DELETE /api/projects/{id}", s.handleDeleteProject)
+	mux.HandleFunc("POST /api/projects/{id}/share", s.handleShareProject)
 
 	mux.HandleFunc("GET /api/members", s.handleListMembers)
 	mux.HandleFunc("GET /api/labels", s.handleListLabels)
@@ -68,10 +83,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/notes", s.handleCreateNote)
 	mux.HandleFunc("PUT /api/notes/{id}", s.handleUpdateNote)
 	mux.HandleFunc("DELETE /api/notes/{id}", s.handleDeleteNote)
+	mux.HandleFunc("POST /api/notes/{id}/share", s.handleShareNote)
 
 	mux.Handle("GET /", s.staticHandler())
 
-	return s.recoverPanic(mux)
+	return s.securityHeaders(s.recoverPanic(s.authMiddleware(mux)))
 }
 
 func (s *Server) recoverPanic(next http.Handler) http.Handler {
@@ -83,6 +99,104 @@ func (s *Server) recoverPanic(next http.Handler) http.Handler {
 			}
 		}()
 		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		next.ServeHTTP(w, r)
+	})
+}
+
+type contextKey string
+
+const userIDContextKey contextKey = "userID"
+
+func (s *Server) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if isPublicAuthPath(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !sameOriginRequest(r) && isStateChanging(r.Method) {
+			writeError(w, http.StatusForbidden, "Origem da requisição não permitida.")
+			return
+		}
+		token := sessionToken(r)
+		userID, ok := s.store.SessionUser(token)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "Não autenticado.")
+			return
+		}
+		ctx := context.WithValue(r.Context(), userIDContextKey, userID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func isPublicAuthPath(path string) bool {
+	return path == "/api/health" || path == "/api/auth/register" || path == "/api/auth/login" || path == "/api/auth/logout" || path == "/api/auth/me" || path == "/api/register" || path == "/api/login" || path == "/api/logout" || path == "/api/me"
+}
+
+func isStateChanging(method string) bool {
+	return method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch || method == http.MethodDelete
+}
+
+func sameOriginRequest(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	host := r.Host
+	return strings.Contains(origin, host)
+}
+
+func sessionToken(r *http.Request) string {
+	if cookie, err := r.Cookie("taskflow_session"); err == nil {
+		return cookie.Value
+	}
+	header := r.Header.Get("Authorization")
+	if strings.HasPrefix(strings.ToLower(header), "bearer ") {
+		return strings.TrimSpace(header[7:])
+	}
+	return ""
+}
+
+func requestUserID(r *http.Request) string {
+	if value := r.Context().Value(userIDContextKey); value != nil {
+		if id, ok := value.(string); ok {
+			return id
+		}
+	}
+	return ""
+}
+
+func (s *Server) setSessionCookie(w http.ResponseWriter, token string, secure bool) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "taskflow_session",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   7 * 24 * 3600,
+	})
+}
+
+func (s *Server) clearSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "taskflow_session",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
 	})
 }
 
@@ -190,27 +304,201 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "service": "taskflow"})
 }
 
-func (s *Server) handleBootstrap(w http.ResponseWriter, _ *http.Request) {
+type authRequest struct {
+	Name     *string `json:"name"`
+	Email    *string `json:"email"`
+	Password *string `json:"password"`
+}
+
+type authBucket struct {
+	mu     sync.Mutex
+	count  int
+	reset  time.Time
+}
+
+var authLimits sync.Map
+
+func allowAuthRequest(ip string) bool {
+	now := time.Now()
+	value, _ := authLimits.LoadOrStore(ip, &authBucket{reset: now.Add(time.Minute)})
+	bucket := value.(*authBucket)
+	bucket.mu.Lock()
+	defer bucket.mu.Unlock()
+	if now.After(bucket.reset) {
+		bucket.count = 0
+		bucket.reset = now.Add(time.Minute)
+	}
+	if bucket.count >= 100 {
+		return false
+	}
+	bucket.count++
+	return true
+}
+
+func clientIP(r *http.Request) string {
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		return strings.TrimSpace(strings.Split(forwarded, ",")[0])
+	}
+	host := r.RemoteAddr
+	if index := strings.LastIndex(host, ":"); index >= 0 {
+		host = host[:index]
+	}
+	return host
+}
+
+func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+	if !allowAuthRequest(clientIP(r)) {
+		writeError(w, http.StatusTooManyRequests, "Muitas tentativas. Tente novamente mais tarde.")
+		return
+	}
+	var body authRequest
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	name := model.Text(body.Name, "")
+	email := strings.ToLower(strings.TrimSpace(model.Text(body.Email, "")))
+	password := model.Text(body.Password, "")
+	if name == "" || email == "" || password == "" {
+		writeError(w, http.StatusBadRequest, "Nome, e-mail e senha são obrigatórios.")
+		return
+	}
+	if !strings.Contains(email, "@") {
+		writeError(w, http.StatusBadRequest, "E-mail inválido.")
+		return
+	}
+	if len(password) < 8 {
+		writeError(w, http.StatusBadRequest, "A senha deve ter ao menos 8 caracteres.")
+		return
+	}
+	hash, err := model.HashPassword(password)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Não foi possível criar a conta.")
+		return
+	}
+	var created model.User
+	err = s.store.Update(func(data *model.Data) {
+		for _, user := range data.Users {
+			if strings.EqualFold(user.Email, email) {
+				return
+			}
+		}
+		created = model.User{
+			ID:           model.UID(),
+			Name:         name,
+			Email:        email,
+			Initials:     initialsFor(name),
+			Color:        "#3f6152",
+			Role:         "MEMBER",
+			PasswordHash: hash,
+		}
+		data.Users = append(data.Users, created)
+		seedUserData(data, created)
+	})
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	if created.ID == "" {
+		writeError(w, http.StatusConflict, "E-mail já cadastrado.")
+		return
+	}
+	token, err := s.store.CreateSession(created.ID)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+	s.setSessionCookie(w, token, secure)
+	writeJSON(w, http.StatusCreated, map[string]any{"user": publicUser(created), "token": token})
+}
+
+func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if !allowAuthRequest(clientIP(r)) {
+		writeError(w, http.StatusTooManyRequests, "Muitas tentativas. Tente novamente mais tarde.")
+		return
+	}
+	var body authRequest
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	email := strings.ToLower(strings.TrimSpace(model.Text(body.Email, "")))
+	password := model.Text(body.Password, "")
+	if email == "" || password == "" {
+		writeError(w, http.StatusBadRequest, "E-mail e senha são obrigatórios.")
+		return
+	}
 	data := s.store.Snapshot()
-	workspace := data.Workspaces[0]
-	currentUser := findUser(&data, data.CurrentUserID)
+	var found *model.User
+	for index := range data.Users {
+		if strings.EqualFold(data.Users[index].Email, email) {
+			found = &data.Users[index]
+			break
+		}
+	}
+	if found == nil || !model.VerifyPassword(found.PasswordHash, password) {
+		writeError(w, http.StatusUnauthorized, "Credenciais inválidas.")
+		return
+	}
+	token, err := s.store.CreateSession(found.ID)
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	secure := r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+	s.setSessionCookie(w, token, secure)
+	writeJSON(w, http.StatusOK, map[string]any{"user": publicUser(*found), "token": token})
+}
+
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	s.store.DeleteSession(sessionToken(r))
+	s.clearSessionCookie(w)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
+	data := s.store.Snapshot()
+	user, ok := findUserByID(&data, requestUserID(r))
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "Não autenticado.")
+		return
+	}
+	writeJSON(w, http.StatusOK, publicUser(user))
+}
+
+func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
+	userID := requestUserID(r)
+	data := s.store.Snapshot()
+	user := findUser(&data, userID)
+	workspaces := workspacesOf(data, userID)
+	projects := accessibleProjects(data, userID)
+	columns := columnsOfUser(data, userID)
+	tasks := tasksOfUser(data, userID)
+	notes := notesOfUser(data, userID)
+	labels := labelsOfUser(data, userID)
+	workspace := model.Workspace{}
+	if len(workspaces) > 0 {
+		workspace = workspaces[0]
+	}
+	safeUser := publicUser(user)
 	writeJSON(w, http.StatusOK, model.Bootstrap{
-		CurrentUser: &currentUser,
+		CurrentUser: &safeUser,
 		Workspace:   &workspace,
-		Workspaces:  data.Workspaces,
-		Projects:    data.Projects,
-		Members:     data.Users,
-		Columns:     data.Columns,
-		Tasks:       data.Tasks,
-		Notes:       data.Notes,
-		Labels:      data.Labels,
+		Workspaces:  workspaces,
+		Projects:    projects,
+		Members:     []model.User{safeUser},
+		Columns:     columns,
+		Tasks:       tasks,
+		Notes:       notes,
+		Labels:      labels,
 	})
 }
 
 // ---------- workspaces ----------
 
-func (s *Server) handleListWorkspaces(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, s.store.Snapshot().Workspaces)
+func (s *Server) handleListWorkspaces(w http.ResponseWriter, r *http.Request) {
+	userID := requestUserID(r)
+	data := s.store.Snapshot()
+	writeJSON(w, http.StatusOK, workspacesOf(data, userID))
 }
 
 func (s *Server) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
@@ -218,13 +506,14 @@ func (s *Server) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &body) {
 		return
 	}
+	userID := requestUserID(r)
 	var created model.Workspace
 	err := s.store.Update(func(data *model.Data) {
 		created = model.Workspace{
 			ID:          model.UID(),
 			Name:        model.Text(body.Name, "Novo workspace"),
 			Description: model.Text(body.Description, ""),
-			OwnerID:     data.CurrentUserID,
+			OwnerID:     userID,
 			CreatedAt:   model.Now(),
 		}
 		data.Workspaces = append(data.Workspaces, created)
@@ -238,8 +527,10 @@ func (s *Server) handleCreateWorkspace(w http.ResponseWriter, r *http.Request) {
 
 // ---------- projetos ----------
 
-func (s *Server) handleListProjects(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, s.store.Snapshot().Projects)
+func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
+	userID := requestUserID(r)
+	data := s.store.Snapshot()
+	writeJSON(w, http.StatusOK, accessibleProjects(data, userID))
 }
 
 func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
@@ -247,11 +538,22 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &body) {
 		return
 	}
+	userID := requestUserID(r)
 	var created model.Project
 	err := s.store.Update(func(data *model.Data) {
-		workspaceID := "workspace-personal"
-		if len(data.Workspaces) > 0 {
-			workspaceID = data.Workspaces[0].ID
+		workspaceID := ""
+		workspaces := workspacesOf(*data, userID)
+		if len(workspaces) > 0 {
+			workspaceID = workspaces[0].ID
+		} else {
+			workspace := model.Workspace{
+				ID:        model.UID(),
+				Name:      "Meu workspace",
+				OwnerID:   userID,
+				CreatedAt: model.Now(),
+			}
+			data.Workspaces = append(data.Workspaces, workspace)
+			workspaceID = workspace.ID
 		}
 		created = model.Project{
 			ID:          model.UID(),
@@ -260,7 +562,7 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 			Description: model.Text(body.Description, ""),
 			Icon:        model.Text(body.Icon, "✦"),
 			Color:       model.Text(body.Color, "#3f6152"),
-			OwnerID:     data.CurrentUserID,
+			OwnerID:     userID,
 			CreatedAt:   model.Now(),
 		}
 		data.Projects = append(data.Projects, created)
@@ -274,9 +576,10 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetProject(w http.ResponseWriter, r *http.Request) {
+	userID := requestUserID(r)
 	data := s.store.Snapshot()
 	project, ok := findProject(&data, r.PathValue("id"))
-	if !ok {
+	if !ok || project.OwnerID != userID {
 		writeError(w, http.StatusNotFound, "Projeto não encontrado")
 		return
 	}
@@ -292,11 +595,12 @@ func (s *Server) handleUpdateProject(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &body) {
 		return
 	}
+	userID := requestUserID(r)
 	var updated model.Project
 	found := false
 	err := s.store.Update(func(data *model.Data) {
 		project, ok := findProject(data, r.PathValue("id"))
-		if !ok {
+		if !ok || project.OwnerID != userID {
 			return
 		}
 		project.Name = model.Text(body.Name, project.Name)
@@ -318,18 +622,69 @@ func (s *Server) handleUpdateProject(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, updated)
 }
 
+func (s *Server) handleShareProject(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Email *string `json:"email"`
+	}
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	email := strings.ToLower(strings.TrimSpace(model.Text(body.Email, "")))
+	if email == "" {
+		writeError(w, http.StatusBadRequest, "E-mail obrigatório.")
+		return
+	}
+	userID := requestUserID(r)
+	var updated model.Project
+	found := false
+	err := s.store.Update(func(data *model.Data) {
+		index := slices.IndexFunc(data.Projects, func(p model.Project) bool { return p.ID == r.PathValue("id") })
+		if index < 0 || data.Projects[index].OwnerID != userID {
+			return
+		}
+		targetID := ""
+		for _, user := range data.Users {
+			if strings.EqualFold(user.Email, email) {
+				targetID = user.ID
+				break
+			}
+		}
+		if targetID == "" || targetID == userID {
+			return
+		}
+		project := data.Projects[index]
+		if !containsString(project.SharedWith, targetID) {
+			project.SharedWith = append(project.SharedWith, targetID)
+		}
+		data.Projects[index] = project
+		updated = project
+		found = true
+	})
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	if !found {
+		writeError(w, http.StatusBadRequest, "Usuário não encontrado ou projeto inválido.")
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
 func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	userID := requestUserID(r)
 	var (
 		deleted bool
 		lastOne bool
 	)
 	err := s.store.Update(func(data *model.Data) {
-		index := slices.IndexFunc(data.Projects, func(p model.Project) bool { return p.ID == id })
+		index := slices.IndexFunc(data.Projects, func(p model.Project) bool { return p.ID == id && p.OwnerID == userID })
 		if index < 0 {
 			return
 		}
-		if len(data.Projects) == 1 {
+		userProjects := projectsOf(*data, userID)
+		if len(userProjects) == 1 {
 			lastOne = true
 			return
 		}
@@ -354,18 +709,28 @@ func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request) {
 
 // ---------- membros, etiquetas e colunas ----------
 
-func (s *Server) handleListMembers(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, s.store.Snapshot().Users)
+func (s *Server) handleListMembers(w http.ResponseWriter, r *http.Request) {
+	userID := requestUserID(r)
+	data := s.store.Snapshot()
+	user := findUser(&data, userID)
+	writeJSON(w, http.StatusOK, []model.User{user})
 }
 
-func (s *Server) handleListLabels(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, s.store.Snapshot().Labels)
+func (s *Server) handleListLabels(w http.ResponseWriter, r *http.Request) {
+	userID := requestUserID(r)
+	data := s.store.Snapshot()
+	writeJSON(w, http.StatusOK, labelsOfUser(data, userID))
 }
 
 func (s *Server) handleListColumns(w http.ResponseWriter, r *http.Request) {
+	userID := requestUserID(r)
 	data := s.store.Snapshot()
-	columns := data.Columns
+	columns := columnsOfUser(data, userID)
 	if projectID := r.URL.Query().Get("projectId"); projectID != "" {
+		if !projectOwnedBy(data, projectID, userID) {
+			writeError(w, http.StatusNotFound, "Projeto não encontrado")
+			return
+		}
 		columns = columnsOf(&data, projectID)
 	}
 	writeJSON(w, http.StatusOK, orderedColumns(columns))
@@ -391,13 +756,32 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &body) {
 		return
 	}
+	userID := requestUserID(r)
 	var created model.Task
 	err := s.store.Update(func(data *model.Data) {
-		created = buildTask(data, body, nil, "")
+		if body.ProjectID != nil && !projectOwnedBy(*data, *body.ProjectID, userID) {
+			return
+		}
+		if body.ProjectID == nil {
+			projects := projectsOf(*data, userID)
+			if len(projects) == 0 {
+				return
+			}
+			id := projects[0].ID
+			body.ProjectID = &id
+		}
+		created = buildTask(data, body, nil, "", userID)
+		if created.ProjectID == "" {
+			return
+		}
 		data.Tasks = append(data.Tasks, created)
 	})
 	if err != nil {
 		s.fail(w, err)
+		return
+	}
+	if created.ID == "" {
+		writeError(w, http.StatusBadRequest, "Projeto não encontrado")
 		return
 	}
 	writeJSON(w, http.StatusCreated, created)
@@ -408,6 +792,7 @@ func (s *Server) handleUpdateTask(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &body) {
 		return
 	}
+	userID := requestUserID(r)
 	var updated model.Task
 	found := false
 	err := s.store.Update(func(data *model.Data) {
@@ -416,7 +801,10 @@ func (s *Server) handleUpdateTask(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		current := data.Tasks[index]
-		rebuilt := buildTask(data, body, &current, current.ID)
+		if !projectOwnedBy(*data, current.ProjectID, userID) {
+			return
+		}
+		rebuilt := buildTask(data, body, &current, current.ID, userID)
 		rebuilt.CreatedAt = current.CreatedAt
 		data.Tasks[index] = rebuilt
 		updated = rebuilt
@@ -435,10 +823,14 @@ func (s *Server) handleUpdateTask(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	userID := requestUserID(r)
 	removed := false
 	err := s.store.Update(func(data *model.Data) {
 		index := slices.IndexFunc(data.Tasks, func(t model.Task) bool { return t.ID == id })
 		if index < 0 {
+			return
+		}
+		if !projectOwnedBy(*data, data.Tasks[index].ProjectID, userID) {
 			return
 		}
 		data.Tasks = slices.Delete(data.Tasks, index, index+1)
@@ -466,14 +858,18 @@ func (s *Server) handleReorderTasks(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Parâmetros inválidos")
 		return
 	}
+	userID := requestUserID(r)
 	var moved bool
 	err := s.store.Update(func(data *model.Data) {
 		task, ok := findTask(data, *body.TaskID)
 		if !ok {
 			return
 		}
+		if !projectOwnedBy(*data, task.ProjectID, userID) {
+			return
+		}
 		column, ok := findColumn(data, *body.ColumnID)
-		if !ok || task.ProjectID != column.ProjectID {
+		if !ok || task.ProjectID != column.ProjectID || !projectOwnedBy(*data, column.ProjectID, userID) {
 			return
 		}
 
@@ -525,8 +921,10 @@ func (s *Server) handleReorderTasks(w http.ResponseWriter, r *http.Request) {
 
 // ---------- notas ----------
 
-func (s *Server) handleListNotes(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, s.store.Snapshot().Notes)
+func (s *Server) handleListNotes(w http.ResponseWriter, r *http.Request) {
+	userID := requestUserID(r)
+	data := s.store.Snapshot()
+	writeJSON(w, http.StatusOK, accessibleNotes(data, userID))
 }
 
 func (s *Server) handleCreateNote(w http.ResponseWriter, r *http.Request) {
@@ -534,15 +932,18 @@ func (s *Server) handleCreateNote(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &body) {
 		return
 	}
+	userID := requestUserID(r)
 	now := model.Now()
 	note := model.Note{
-		ID:        model.UID(),
-		Title:     model.Text(body.Title, ""),
-		Content:   model.Text(body.Content, ""),
-		Color:     model.Text(body.Color, "default"),
-		Pinned:    body.Pinned != nil && *body.Pinned,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:         model.UID(),
+		UserID:     userID,
+		Title:      model.Text(body.Title, ""),
+		Content:    model.Text(body.Content, ""),
+		Color:      model.Text(body.Color, "default"),
+		Pinned:     body.Pinned != nil && *body.Pinned,
+		SharedWith: []string{},
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
 	if err := s.store.Update(func(data *model.Data) {
 		data.Notes = append(data.Notes, note)
@@ -553,16 +954,67 @@ func (s *Server) handleCreateNote(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, note)
 }
 
+func (s *Server) handleShareNote(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Email *string `json:"email"`
+	}
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	email := strings.ToLower(strings.TrimSpace(model.Text(body.Email, "")))
+	if email == "" {
+		writeError(w, http.StatusBadRequest, "E-mail obrigatório.")
+		return
+	}
+	userID := requestUserID(r)
+	var updated model.Note
+	found := false
+	err := s.store.Update(func(data *model.Data) {
+		index := slices.IndexFunc(data.Notes, func(n model.Note) bool { return n.ID == r.PathValue("id") })
+		if index < 0 || data.Notes[index].UserID != userID {
+			return
+		}
+		targetID := ""
+		for _, user := range data.Users {
+			if strings.EqualFold(user.Email, email) {
+				targetID = user.ID
+				break
+			}
+		}
+		if targetID == "" || targetID == userID {
+			return
+		}
+		note := data.Notes[index]
+		if !containsString(note.SharedWith, targetID) {
+			note.SharedWith = append(note.SharedWith, targetID)
+		}
+		note.UpdatedAt = model.Now()
+		data.Notes[index] = note
+		updated = note
+		found = true
+	})
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	if !found {
+		writeError(w, http.StatusBadRequest, "Usuário não encontrado ou nota inválida.")
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
 func (s *Server) handleUpdateNote(w http.ResponseWriter, r *http.Request) {
 	var body noteRequest
 	if !decodeBody(w, r, &body) {
 		return
 	}
+	userID := requestUserID(r)
 	var updated model.Note
 	found := false
 	err := s.store.Update(func(data *model.Data) {
 		index := slices.IndexFunc(data.Notes, func(n model.Note) bool { return n.ID == r.PathValue("id") })
-		if index < 0 {
+		if index < 0 || data.Notes[index].UserID != userID {
 			return
 		}
 		note := data.Notes[index]
@@ -590,10 +1042,11 @@ func (s *Server) handleUpdateNote(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteNote(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	userID := requestUserID(r)
 	removed := false
 	err := s.store.Update(func(data *model.Data) {
 		index := slices.IndexFunc(data.Notes, func(n model.Note) bool { return n.ID == id })
-		if index < 0 {
+		if index < 0 || data.Notes[index].UserID != userID {
 			return
 		}
 		data.Notes = slices.Delete(data.Notes, index, index+1)
@@ -617,9 +1070,16 @@ func (s *Server) staticHandler() http.Handler {
 	files := http.FileServer(http.Dir(s.staticRoot))
 	index := filepath.Join(s.staticRoot, "index.html")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		clean := filepath.Clean("/" + strings.TrimPrefix(r.URL.Path, "/"))
-		candidate := filepath.Join(s.staticRoot, clean)
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+		clean := path.Clean("/" + strings.TrimPrefix(r.URL.Path, "/"))
+		candidate := filepath.Join(s.staticRoot, filepath.FromSlash(strings.TrimPrefix(clean, "/")))
+		relative, err := filepath.Rel(s.staticRoot, candidate)
+		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			w.Header().Set("Cache-Control", "no-cache")
+			s.serveIndex(w, index)
+			return
+		}
+		info, err := os.Stat(candidate)
+		if err == nil && !info.IsDir() {
 			if clean != "/index.html" {
 				w.Header().Set("Cache-Control", "no-cache")
 			}
@@ -644,6 +1104,181 @@ func (s *Server) serveIndex(w http.ResponseWriter, index string) {
 	}
 }
 
+func initialsFor(name string) string {
+	fields := strings.Fields(name)
+	if len(fields) == 0 {
+		return "?"
+	}
+	if len(fields) == 1 {
+		return strings.ToUpper(string([]rune(fields[0])[:1]))
+	}
+	return strings.ToUpper(string([]rune(fields[0])[:1])) + strings.ToUpper(string([]rune(fields[len(fields)-1])[:1]))
+}
+
+func seedUserData(data *model.Data, user model.User) {
+	workspaceID := model.UID()
+	workspace := model.Workspace{
+		ID:          workspaceID,
+		Name:        "Meu workspace",
+		Description: "Organização pessoal e profissional",
+		OwnerID:     user.ID,
+		CreatedAt:   model.Now(),
+	}
+	data.Workspaces = append(data.Workspaces, workspace)
+
+	projects := []struct {
+		name, description, icon, color string
+	}{
+		{"Operação principal", "Tarefas importantes do dia a dia", "✦", "#3f6152"},
+		{"Estudos e crescimento", "Aprendizados e planos pessoais", "↗", "#3c6377"},
+		{"Conteúdo", "Ideias, publicações e projetos criativos", "◈", "#905f18"},
+	}
+	for _, item := range projects {
+		projectID := model.UID()
+		project := model.Project{
+			ID:          projectID,
+			WorkspaceID: workspaceID,
+			Name:        item.name,
+			Description: item.description,
+			Icon:        item.icon,
+			Color:       item.color,
+			OwnerID:     user.ID,
+			CreatedAt:   model.Now(),
+		}
+		data.Projects = append(data.Projects, project)
+		data.Columns = append(data.Columns, store.CreateColumns(projectID, nil)...)
+	}
+
+	for _, label := range []struct {
+		name, color string
+	}{
+		{"Foco", "#3f6152"},
+		{"Urgente", "#a8392f"},
+		{"Equipe", "#3c6377"},
+	} {
+		data.Labels = append(data.Labels, model.Label{
+			ID:     model.UID(),
+			UserID: user.ID,
+			Name:   label.name,
+			Color:  label.color,
+		})
+	}
+}
+
+func workspacesOf(data model.Data, userID string) []model.Workspace {
+	result := []model.Workspace{}
+	for _, workspace := range data.Workspaces {
+		if workspace.OwnerID == userID {
+			result = append(result, workspace)
+		}
+	}
+	return result
+}
+
+func projectsOf(data model.Data, userID string) []model.Project {
+	result := []model.Project{}
+	for _, project := range data.Projects {
+		if project.OwnerID == userID {
+			result = append(result, project)
+		}
+	}
+	return result
+}
+
+func accessibleProjects(data model.Data, userID string) []model.Project {
+	result := []model.Project{}
+	for _, project := range data.Projects {
+		if project.OwnerID == userID || containsString(project.SharedWith, userID) {
+			result = append(result, project)
+		}
+	}
+	return result
+}
+
+func projectIDsOf(projects []model.Project) map[string]bool {
+	result := make(map[string]bool, len(projects))
+	for _, project := range projects {
+		result[project.ID] = true
+	}
+	return result
+}
+
+func columnsOfUser(data model.Data, userID string) []model.Column {
+	projects := projectIDsOf(accessibleProjects(data, userID))
+	result := []model.Column{}
+	for _, column := range data.Columns {
+		if projects[column.ProjectID] {
+			result = append(result, column)
+		}
+	}
+	return result
+}
+
+func tasksOfUser(data model.Data, userID string) []model.Task {
+	projects := projectIDsOf(accessibleProjects(data, userID))
+	result := []model.Task{}
+	for _, task := range data.Tasks {
+		if projects[task.ProjectID] {
+			result = append(result, task)
+		}
+	}
+	return result
+}
+
+func notesOfUser(data model.Data, userID string) []model.Note {
+	result := []model.Note{}
+	for _, note := range data.Notes {
+		if note.UserID == userID {
+			result = append(result, note)
+		}
+	}
+	return result
+}
+
+func accessibleNotes(data model.Data, userID string) []model.Note {
+	result := []model.Note{}
+	seen := map[string]bool{}
+	for _, note := range data.Notes {
+		if note.UserID == userID || containsString(note.SharedWith, userID) {
+			if seen[note.ID] {
+				continue
+			}
+			seen[note.ID] = true
+			result = append(result, note)
+		}
+	}
+	return result
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func labelsOfUser(data model.Data, userID string) []model.Label {
+	result := []model.Label{}
+	for _, label := range data.Labels {
+		if label.UserID == userID {
+			result = append(result, label)
+		}
+	}
+	return result
+}
+
+func projectOwnedBy(data model.Data, projectID, userID string) bool {
+	project, ok := findProject(&data, projectID)
+	return ok && project.OwnerID == userID
+}
+
+func publicUser(user model.User) model.User {
+	user.PasswordHash = ""
+	return user
+}
+
 func (s *Server) fail(w http.ResponseWriter, err error) {
 	s.logger.Error("falha ao persistir alteração", "erro", err)
 	writeError(w, http.StatusInternalServerError, "Não foi possível salvar as alterações.")
@@ -654,7 +1289,7 @@ func (s *Server) fail(w http.ResponseWriter, err error) {
 // buildTask resolve uma tarefa a partir do corpo recebido. Quando current não
 // é nil, os campos ausentes preservam os valores já existentes — e um null
 // explícito limpa o valor, como fazia o servidor anterior.
-func buildTask(data *model.Data, body taskRequest, current *model.Task, id string) model.Task {
+func buildTask(data *model.Data, body taskRequest, current *model.Task, id string, userID string) model.Task {
 	now := model.Now()
 	task := model.Task{
 		Title:      "Tarefa sem título",
@@ -680,9 +1315,20 @@ func buildTask(data *model.Data, body taskRequest, current *model.Task, id strin
 		task.ProjectID = *body.ProjectID
 	}
 	project, ok := findProject(data, task.ProjectID)
-	if !ok {
-		project = data.Projects[0]
-		task.ProjectID = project.ID
+	if !ok || (userID != "" && project.OwnerID != userID) {
+		projects := []model.Project{}
+		for _, candidate := range data.Projects {
+			if userID == "" || candidate.OwnerID == userID {
+				projects = append(projects, candidate)
+			}
+		}
+		if len(projects) > 0 {
+			project = projects[0]
+			task.ProjectID = project.ID
+		} else if len(data.Projects) > 0 {
+			project = data.Projects[0]
+			task.ProjectID = project.ID
+		}
 	}
 	projectColumns := orderedColumns(columnsOf(data, project.ID))
 
