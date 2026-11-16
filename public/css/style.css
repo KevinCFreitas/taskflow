@@ -66,56 +66,56 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #121210;
-  --surface: #1a1917;
-  --surface-raised: #211f1c;
-  --surface-soft: #24211d;
-  --surface-tint: #1e1c19;
-  --sidebar: #10100d;
-  --sidebar-raised: #191817;
-  --sidebar-text: #a2a198;
-  --sidebar-muted: #7d7c75;
-  --text: #e8e6e0;
-  --text-strong: #f6f5f0;
-  --text-muted: #c6c3ba;
-  --text-faint: #a6a29a;
-  --border: #2a2925;
-  --border-strong: #39372f;
-  --primary: #e9e7e0;
-  --primary-strong: #f7f6f1;
-  --primary-contrast: #16160f;
-  --primary-soft: #2a2925;
-  --primary-softer: #232119;
-  --accent: #6ba888;
-  --accent-strong: #7cbb99;
-  --accent-soft: #1e2c25;
-  --accent-contrast: #0f1a13;
-  --on-accent: #0f1a13;
-  --danger: #d9705f;
-  --danger-soft: #33211d;
-  --danger-ink: #e08474;
-  --warning: #cf9645;
-  --warning-soft: #30241a;
-  --warning-ink: #d8ab57;
-  --success: #5cab86;
-  --success-soft: #1c2f27;
-  --success-ink: #6cc39a;
-  --success-contrast: #0f2419;
-  --info: #7ba3b5;
-  --info-soft: #1e2b31;
-  --info-ink: #8ab4c4;
-  --priority-urgent: #e07a70;
-  --priority-urgent-soft: #38201d;
-  --priority-high: #e0a05c;
-  --priority-high-soft: #382a1c;
-  --priority-medium: #9a8bf0;
-  --priority-medium-soft: #2b2740;
-  --priority-low: #5cb890;
-  --priority-low-soft: #1e2c25;
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.32);
-  --shadow-md: 0 12px 28px rgba(0, 0, 0, 0.38);
-  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --bg: #0F1115;
+  --surface: #181C23;
+  --surface-raised: #1C212B;
+  --surface-soft: #15181E;
+  --surface-tint: #181C23;
+  --sidebar: #0F1115;
+  --sidebar-raised: #181C23;
+  --sidebar-text: #9CA3AF;
+  --sidebar-muted: #6B7280;
+  --text: #F4F6F9;
+  --text-strong: #FFFFFF;
+  --text-muted: #9CA3AF;
+  --text-faint: #6B7280;
+  --border: rgba(255,255,255,.08);
+  --border-strong: rgba(255,255,255,.14);
+  --primary: #E85D04;
+  --primary-strong: #ff7a2e;
+  --primary-contrast: #ffffff;
+  --primary-soft: rgba(232,93,4,.12);
+  --primary-softer: rgba(232,93,4,.06);
+  --accent: #E85D04;
+  --accent-strong: #ff7a2e;
+  --accent-soft: rgba(232,93,4,.12);
+  --accent-contrast: #ffffff;
+  --on-accent: #ffffff;
+  --danger: #E85D04;
+  --danger-soft: rgba(232,93,4,.12);
+  --danger-ink: #ff7a2e;
+  --warning: #f59e0b;
+  --warning-soft: rgba(245,158,11,.12);
+  --warning-ink: #f59e0b;
+  --success: #22c55e;
+  --success-soft: rgba(34,197,94,.12);
+  --success-ink: #22c55e;
+  --success-contrast: #ffffff;
+  --info: #2563EB;
+  --info-soft: rgba(37,99,235,.12);
+  --info-ink: #2563EB;
+  --priority-urgent: #E85D04;
+  --priority-urgent-soft: rgba(232,93,4,.12);
+  --priority-high: #f59e0b;
+  --priority-high-soft: rgba(245,158,11,.12);
+  --priority-medium: #2563EB;
+  --priority-medium-soft: rgba(37,99,235,.12);
+  --priority-low: #22c55e;
+  --priority-low-soft: rgba(34,197,94,.12);
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,.4);
+  --shadow-md: 0 12px 28px rgba(0,0,0,.45);
+  --shadow-lg: 0 24px 60px rgba(0,0,0,.55);
   color-scheme: dark;
 }
 
@@ -719,3 +719,5 @@ textarea.form-control { resize: vertical; min-height: 70px; }
 .auth-shell{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top,#e8f1ec 0%,#f6f6f2 45%,#efeee8 100%)}.auth-card{width:min(440px,100%);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:34px;display:grid;gap:18px;box-shadow:0 24px 70px rgba(24,24,15,.12)}.auth-brand{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:700}.auth-brand span{color:var(--text-muted);font-size:13px;font-weight:400}.auth-card h2{font-size:28px;letter-spacing:-.03em}.auth-card p{color:var(--text-muted)}.auth-form{gap:14px}.auth-toggle{color:var(--accent);font-weight:600}
 
 .notification-panel{position:fixed;top:72px;right:20px;width:min(360px,calc(100vw - 40px));background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.14);padding:16px;display:none;z-index:60}.notification-panel.open{display:grid;gap:10px}.notification-header{display:flex;justify-content:space-between;align-items:center}.notification-item{padding:10px 12px;border-radius:10px;background:var(--surface-soft);font-size:13px}.notification-item.error{background:var(--danger-soft);color:var(--danger-ink)}.notification-item.warning{background:var(--warning-soft);color:var(--warning-ink)}.page-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+h1,h2,h3,h4,.page-intro h2,.auth-card h2{font-family:'Montserrat','Space Grotesk',sans-serif}

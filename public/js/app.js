@@ -60,7 +60,7 @@
     projectView: 'board',
     search: '',
     filters: { priority: 'all', assignee: 'all', status: 'all' },
-    theme: readStorage('taskflow-theme') || 'light',
+    theme: readStorage('taskflow-theme') || 'dark',
     modal: null,
     userMenu: false,
     notificationMenu: false,
