@@ -7,5 +7,10 @@
   ],
   "env": {
     "TASKFLOW_DATA_FILE": "/tmp/taskflow-data.json"
+  },
+  "functions": {
+    "api/index.go": {
+      "includeFiles": "public/**"
+    }
   }
 }
