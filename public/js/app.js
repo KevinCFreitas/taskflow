@@ -50,7 +50,11 @@
     'more-vertical': '<circle cx="12" cy="5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/>',
     'refresh-cw': '<path d="M20 11a8 8 0 0 0-14.9-3L3 11m0-5v5h5M4 13a8 8 0 0 0 14.9 3L21 13m0 5v-5h-5"/>',
     'sort-asc': '<path d="M4 6h16M6 12h12M9 18h6"/>',
-    'file-text': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/>'
+    'file-text': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+    lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    'eye-off': '<path d="M3 3 21 21M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A10.5 10.5 0 0 1 12 5c6.5 0 10 7 10 7a17.3 17.3 0 0 1-3.2 4.3M6.1 6.1C3.7 8 2 12 2 12s3.5 7 10 7c1.6 0 3-.4 4.3-1"/>'
   };
 
   const state = {
@@ -583,13 +587,58 @@
 
    let authMode = 'login';
 
-   function renderAuth() {
-     const isRegister = authMode === 'register';
-     const sidebar = document.querySelector('.sidebar');
-     if (sidebar) sidebar.style.display = 'none';
-     appContent.innerHTML = `<section class="auth-shell"><div class="auth-card"><div class="auth-brand"><div class="brand-mark">T</div><strong>taskflow</strong><span>organize sem complicar</span></div><h2>${isRegister ? 'Criar conta' : 'Entrar'}</h2><p>${isRegister ? 'Crie seu espaço privado de trabalho.' : 'Acesse seu workspace com segurança.'}</p><form data-auth-form="${isRegister ? 'register' : 'login'}" class="auth-form"><div class="form-grid">${isRegister ? `<label class="form-field full"><span class="form-label">Nome</span><input class="form-control" name="name" type="text" required autocomplete="name"></label>` : ''}<label class="form-field full"><span class="form-label">E-mail</span><input class="form-control" name="email" type="email" required autocomplete="email"></label><label class="form-field full"><span class="form-label">Senha</span><input class="form-control" name="password" type="password" required minlength="8" autocomplete="${isRegister ? 'new-password' : 'current-password'}"></label></div><div class="modal-footer"><button class="button primary" type="submit">${isRegister ? 'Criar conta' : 'Entrar'}</button></div></form><button class="text-button auth-toggle" type="button" data-action="auth-toggle">${isRegister ? 'Já tenho conta' : 'Criar nova conta'}</button></div></section>`;
-     hydrateIcons(appContent);
-   }
+    function renderAuth() {
+      const isRegister = authMode === 'register';
+      const sidebar = document.querySelector('.sidebar');
+      if (sidebar) sidebar.style.display = 'none';
+      appContent.innerHTML = `
+        <section class="auth-shell">
+          <div class="auth-visual">
+            <div class="auth-visual-inner">
+              <div class="auth-logo">
+                <div class="brand-mark">T</div>
+                <strong>taskflow</strong>
+              </div>
+              <h1>${isRegister ? 'Comece a organizar seu trabalho hoje.' : 'Seu workspace, do seu jeito.'}</h1>
+              <p>${isRegister ? 'Crie projetos, acompanhe tarefas e mantenha tudo em um só lugar, sem complicação.' : 'Acesse suas tarefas, projetos e anotações em um só lugar.'}</p>
+              <ul class="auth-features">
+                <li>${icon('kanban', 16)} Quadros Kanban intuitivos</li>
+                <li>${icon('calendar', 16)} Calendário integrado</li>
+                <li>${icon('sparkle', 16)} Organização sem complicar</li>
+              </ul>
+            </div>
+            <div class="auth-orb auth-orb-a"></div>
+            <div class="auth-orb auth-orb-b"></div>
+          </div>
+          <div class="auth-panel">
+            <div class="auth-card">
+              <div class="auth-brand">
+                <div class="brand-mark">T</div>
+                <div class="auth-brand-copy">
+                  <strong>taskflow</strong>
+                  <span>organize sem complicar</span>
+                </div>
+              </div>
+              <div class="auth-head">
+                <h2>${isRegister ? 'Criar conta' : 'Entrar'}</h2>
+                <p>${isRegister ? 'Crie seu espaço privado de trabalho.' : 'Acesse seu workspace com segurança.'}</p>
+              </div>
+              <form data-auth-form="${isRegister ? 'register' : 'login'}" class="auth-form">
+                <div class="form-grid">
+                  ${isRegister ? `<label class="form-field full"><span class="form-label">Nome</span><div class="input-with-icon"><span class="input-icon">${icon('user', 15)}</span><input class="form-control" name="name" type="text" required autocomplete="name" placeholder="Seu nome"></div></label>` : ''}
+                  <label class="form-field full"><span class="form-label">E-mail</span><div class="input-with-icon"><span class="input-icon">${icon('mail', 15)}</span><input class="form-control" name="email" type="email" required autocomplete="email" placeholder="voce@exemplo.com"></div></label>
+                  <label class="form-field full"><span class="form-label">Senha</span><div class="input-with-icon"><span class="input-icon">${icon('lock', 15)}</span><input class="form-control" name="password" type="password" required minlength="8" autocomplete="${isRegister ? 'new-password' : 'current-password'}" placeholder="••••••••"><button class="password-toggle" type="button" data-action="toggle-password" aria-label="Mostrar senha">${icon('eye', 15)}</button></div></label>
+                </div>
+                <button class="button primary auth-submit" type="submit">${isRegister ? 'Criar conta' : 'Entrar'} ${icon('arrow-right', 14)}</button>
+              </form>
+              <div class="auth-divider"><span>${isRegister ? 'Já tem conta?' : 'Novo por aqui?'}</span></div>
+              <button class="button secondary auth-toggle" type="button" data-action="auth-toggle">${isRegister ? 'Entrar na minha conta' : 'Criar nova conta'}</button>
+            </div>
+            <p class="auth-foot">Ao continuar, você concorda com os termos de uso do Taskflow.</p>
+          </div>
+        </section>`;
+      hydrateIcons(appContent);
+    }
 
    async function submitTask(form) {
     const formData = new FormData(form);
@@ -957,12 +1006,22 @@
        showToast(error.message, 'error');
      }
    });
-   appContent.addEventListener('click', (event) => {
-     const toggle = event.target.closest('[data-action="auth-toggle"]');
-     if (!toggle) return;
-     authMode = authMode === 'login' ? 'register' : 'login';
-     renderAuth();
-   });
+    appContent.addEventListener('click', (event) => {
+      const toggle = event.target.closest('[data-action="auth-toggle"]');
+      if (!toggle) return;
+      authMode = authMode === 'login' ? 'register' : 'login';
+      renderAuth();
+    });
+    appContent.addEventListener('click', (event) => {
+      const toggle = event.target.closest('[data-action="toggle-password"]');
+      if (!toggle) return;
+      const input = toggle.closest('.input-with-icon')?.querySelector('input');
+      if (!input) return;
+      const showing = input.type === 'text';
+      input.type = showing ? 'password' : 'text';
+      toggle.innerHTML = icon(showing ? 'eye' : 'eye-off', 15);
+      hydrateIcons(toggle);
+    });
   modalRoot.addEventListener('click', (event) => {
     const select = event.target.closest('[data-select-field]');
     if (!select) return;
